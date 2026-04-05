@@ -1,0 +1,39 @@
+# Environment & secrets
+.env
+*.env
+*.env.*
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+env/
+
+# Database (contains credentials & PII)
+*.db
+*.sqlite
+*.sqlite3
+
+# Docker volumes / runtime data
+data/
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+secrets/
+*.key
+*.ps1
+
+# Binaries & certs in static
+static/scripts/*.exe
+static/scripts/*.bin
+static/scripts/*.cer
+static/scripts/openuem/
+idriveforlinux*

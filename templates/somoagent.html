@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/svg+xml" href="/favicon.ico">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SomoTechs SOC — SomoAgent</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#06070c;--surface:#0d0f17;--surface-2:#111420;--surface-3:#161a28;
+  --border:rgba(255,255,255,0.06);--border-2:rgba(255,255,255,0.12);
+  --accent:#1D6FFF;--accent-2:#60A5FA;--accent-dim:rgba(99,102,241,0.12);
+  --green:#22c55e;--green-2:#4ade80;--green-dim:rgba(34,197,94,0.1);
+  --amber:#f59e0b;--amber-dim:rgba(245,158,11,0.1);
+  --red:#ef4444;--red-dim:rgba(239,68,68,0.1);
+  --text:#e8eaf0;--text-muted:#8892a4;--text-subtle:#475569;
+  --sidebar-w:228px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;}
+body{background:var(--bg);background-image:radial-gradient(ellipse 80% 60% at 10% 30%,rgba(99,102,241,.07) 0%,transparent 60%);color:var(--text);font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.5;display:flex;}
+.sidebar{width:var(--sidebar-w);background:linear-gradient(180deg,#0a0b14 0%,#080910 100%);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:50;}
+.sidebar-logo{padding:20px 16px 16px;border-bottom:1px solid var(--border);}
+.logo-mark{display:flex;align-items:center;gap:11px;}
+.logo-icon{width:34px;height:34px;background:linear-gradient(135deg,#1D6FFF 0%,#8b5cf6 100%);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:white;flex-shrink:0;}
+.logo-text{font-size:14px;font-weight:700;color:var(--text);}
+.logo-sub{font-size:10px;color:var(--text-subtle);margin-top:1px;}
+.sidebar-nav{flex:1;padding:12px 8px;overflow-y:auto;}
+.nav-link{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:7px;color:var(--text-muted);text-decoration:none;font-size:13px;font-weight:500;transition:all .15s;margin-bottom:2px;border-left:2px solid transparent;}
+.nav-link:hover{background:rgba(255,255,255,.04);color:var(--text);}
+.nav-link.active{background:linear-gradient(90deg,rgba(29,111,255,.12) 0%,rgba(29,111,255,.04) 100%);color:var(--accent-2);border-left-color:var(--accent);font-weight:600;}
+.nav-link.danger:hover{background:rgba(239,68,68,.08);color:var(--red);}
+.nav-divider{height:1px;background:var(--border);margin:10px 8px;}
+.sidebar-footer{padding:14px 16px;border-top:1px solid var(--border);}
+.live-badge{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--green);font-weight:600;}
+.live-dot{width:7px;height:7px;background:var(--green);border-radius:50%;animation:live-glow 2s ease-in-out infinite;}
+@keyframes live-glow{0%,100%{box-shadow:0 0 0 2px rgba(34,197,94,.25),0 0 10px rgba(34,197,94,.5);}50%{box-shadow:0 0 0 5px rgba(34,197,94,.08),0 0 20px rgba(34,197,94,.2);}}
+.footer-ts{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-subtle);margin-top:5px;}
+.main{margin-left:var(--sidebar-w);flex:1;min-height:100vh;display:flex;flex-direction:column;}
+.topbar{background:rgba(9,10,16,.85);backdrop-filter:blur(24px);border-bottom:1px solid rgba(255,255,255,.05);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;gap:16px;position:sticky;top:0;z-index:40;}
+.topbar-left{display:flex;flex-direction:column;}
+.page-title{font-size:15px;font-weight:600;color:var(--text);}
+.page-sub{font-size:11px;color:var(--text-subtle);}
+.page-body{padding:20px 24px 32px;flex:1;}
+.table-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:16px;box-shadow:0 4px 24px rgba(0,0,0,.35);}
+.table-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border);}
+.table-title{font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;}
+.table-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;}
+th{padding:10px 14px;font-size:11px;font-weight:600;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.4px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;}
+td{padding:11px 14px;font-size:13px;border-bottom:1px solid rgba(255,255,255,.03);vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(255,255,255,.015);}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;}
+.badge-ws{background:rgba(34,197,94,.12);color:var(--green-2);border:1px solid rgba(34,197,94,.2);}
+.badge-http{background:rgba(245,158,11,.1);color:var(--amber);border:1px solid rgba(245,158,11,.2);}
+.badge-offline{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.2);}
+.ws-dot{width:6px;height:6px;border-radius:50%;background:currentColor;display:inline-block;}
+.ws-dot.live{animation:live-glow 1.5s ease-in-out infinite;}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border:none;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;font-family:inherit;}
+.btn-primary{background:var(--accent);color:#fff;}
+.btn-primary:hover{background:#1a63e8;}
+.btn-secondary{background:var(--surface-3);color:var(--text-muted);border:1px solid var(--border-2);}
+.btn-secondary:hover{color:var(--text);border-color:rgba(255,255,255,.2);}
+.btn-sm{padding:4px 10px;font-size:11px;}
+.install-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:16px;box-shadow:0 4px 24px rgba(0,0,0,.35);}
+.install-title{font-size:14px;font-weight:600;margin-bottom:8px;}
+.install-sub{font-size:13px;color:var(--text-muted);margin-bottom:16px;line-height:1.6;}
+.code-block{background:var(--surface-3);border:1px solid var(--border-2);border-radius:8px;padding:14px 16px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#c9d1d9;overflow-x:auto;position:relative;margin-bottom:12px;}
+.code-copy{position:absolute;top:8px;right:8px;background:var(--surface-2);border:1px solid var(--border-2);color:var(--text-muted);border-radius:5px;padding:3px 10px;font-size:11px;cursor:pointer;font-family:inherit;}
+.code-copy:hover{color:var(--text);}
+.step-row{display:flex;gap:16px;align-items:flex-start;margin-bottom:16px;}
+.step-num{width:28px;height:28px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;color:#fff;margin-top:2px;}
+.step-content{flex:1;}
+.step-title{font-weight:600;font-size:13px;margin-bottom:4px;}
+.step-desc{color:var(--text-muted);font-size:12px;line-height:1.5;}
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 18px;}
+.stat-label{font-size:11px;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.5px;font-weight:600;}
+.stat-value{font-size:28px;font-weight:700;margin-top:6px;font-family:'JetBrains Mono',monospace;}
+.stat-value.green{color:var(--green);}
+.stat-value.amber{color:var(--amber);}
+.stat-value.muted{color:var(--text-muted);}
+.empty-state{padding:40px;text-align:center;}
+.empty-icon{font-size:32px;margin-bottom:10px;}
+.empty-msg{color:var(--text-muted);font-size:13px;}
+::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px;}
+@media(max-width:900px){.sidebar{display:none;}.main{margin-left:0;}}
+</style>
+</head>
+<body>
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">
+      <div class="logo-icon">S</div>
+      <div><div class="logo-text">SomoTechs</div><div class="logo-sub">Security Operations</div></div>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <a href="/" class="nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>Dashboard</a>
+    <a href="/alerts" class="nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Alerts</a>
+    <a href="/threatmap" class="nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>Threat Map</a>
+    <a href="/agents" class="nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>RMM Agents</a>
+    <a href="/blocked" class="nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>Blocked IPs</a>
+    <a href="/backups" class="nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Backups</a>
+    <a href="/disk" class="nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>Disk Health</a>
+    <a href="/tools" class="nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>Fix It</a>
+    <a href="/ids" class="nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>IDS / Network</a>
+    <a href="/policies" class="nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Policies</a>
+    <a href="/somoagent" class="nav-link active"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>SomoAgent</a>
+    <div class="nav-divider"></div>
+    <a href="/logout" class="nav-link danger"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Sign Out</a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="live-badge"><div class="live-dot"></div>Live Feed</div>
+    <div class="footer-ts" id="ts">--:--:-- UTC</div>
+  </div>
+</aside>
+
+<main class="main">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="page-title">SomoAgent</div>
+      <div class="page-sub">Persistent WebSocket RMM agent — real-time command delivery</div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-secondary" onclick="refreshAgents()">&#8635; Refresh</button>
+    </div>
+  </div>
+
+  <div class="page-body">
+
+    <!-- Stats -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">WS Connected</div>
+        <div class="stat-value green" id="stat-ws">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">HTTP Polling</div>
+        <div class="stat-value amber" id="stat-http">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Agents</div>
+        <div class="stat-value muted" id="stat-total">—</div>
+      </div>
+    </div>
+
+    <!-- WS Agents Live -->
+    <div class="table-card">
+      <div class="table-header">
+        <span class="table-title">Live WebSocket Agents</span>
+        <span id="ws-count" style="font-size:11px;color:var(--green);">Loading...</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Agent ID</th><th>Hostname</th><th>Status</th>
+            <th>CPU</th><th>RAM</th><th>Disk Free</th>
+            <th>OS</th><th>Connected</th><th style="text-align:right">Actions</th>
+          </tr></thead>
+          <tbody id="wsAgentTable">
+            <tr><td colspan="9"><div class="empty-state"><div class="empty-icon">📡</div><div class="empty-msg">Loading WebSocket agents...</div></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Install Instructions -->
+    <div class="install-card">
+      <div class="install-title">Deploy SomoAgent</div>
+      <div class="install-sub">SomoAgent is a persistent WebSocket RMM agent that connects directly to this dashboard for real-time command delivery, live screenshots, file transfers, and instant telemetry — no polling delay.</div>
+
+      <div class="step-row">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-title">One-line install (Run as Administrator)</div>
+          <div class="step-desc">Copy and paste into an elevated PowerShell window. Installs SomoAgent as a SYSTEM scheduled task.</div>
+          <div class="code-block" id="install-cmd"><span style="color:var(--text-subtle);font-size:11px">Loading install command...</span><button class="code-copy" onclick="copyCode('install-cmd')">Copy</button></div>
+        </div>
+      </div>
+
+      <div class="step-row">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-title">Manual download &amp; install</div>
+          <div class="step-desc">Download the agent script directly, then run with -Install flag.</div>
+          <div style="display:flex;gap:8px;margin-bottom:8px;">
+            <a href="/static/scripts/SomoAgent.ps1" class="btn btn-secondary btn-sm" download>Download SomoAgent.ps1</a>
+          </div>
+          <div class="code-block">powershell -ExecutionPolicy Bypass -File SomoAgent.ps1 -Install</div>
+        </div>
+      </div>
+
+      <div class="step-row">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-title">Verify connection</div>
+          <div class="step-desc">After running the installer, the agent connects via WebSocket within ~15 seconds. You'll see it appear in the Live WebSocket Agents table above with a green WS badge.</div>
+        </div>
+      </div>
+
+      <div class="step-row">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <div class="step-title">Uninstall</div>
+          <div class="code-block">powershell -ExecutionPolicy Bypass -File "C:\ProgramData\SomoAgent\SomoAgent.ps1" -Uninstall</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Differences vs old agent -->
+    <div class="install-card">
+      <div class="install-title">SomoAgent vs SomTechs-Agent (HTTP Polling)</div>
+      <div class="install-sub">Both agents work alongside each other. Existing HTTP polling agents continue to work. SomoAgent adds real-time capabilities.</div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+          <tr>
+            <th style="text-align:left;padding:8px 12px;border-bottom:1px solid var(--border);color:var(--text-subtle);font-size:11px;text-transform:uppercase;">Feature</th>
+            <th style="text-align:center;padding:8px 12px;border-bottom:1px solid var(--border);color:var(--text-subtle);font-size:11px;text-transform:uppercase;">SomoAgent (WS)</th>
+            <th style="text-align:center;padding:8px 12px;border-bottom:1px solid var(--border);color:var(--text-subtle);font-size:11px;text-transform:uppercase;">HTTP Polling Agent</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td style="padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.03);">Command delivery</td><td style="text-align:center;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.03);color:var(--green);">Instant (&lt;1s)</td><td style="text-align:center;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.03);color:var(--text-muted);">5–60s delay</td></tr>
+          <tr><td style="padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.03);">Live screenshots</td><td style="text-align:center;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.03);color:var(--green);">Streaming</td><td style="text-align:center;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.03);color:var(--amber);">Single capture</td></tr>
+          <tr><td style="padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.03);">File transfer</td><td style="text-align:center;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.03);color:var(--green);">Bidirectional WS</td><td style="text-align:center;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.03);color:var(--amber);">HTTP upload only</td></tr>
+          <tr><td style="padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.03);">Telemetry</td><td style="text-align:center;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.03);color:var(--green);">Live push (60s)</td><td style="text-align:center;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.03);color:var(--amber);">Poll interval</td></tr>
+          <tr><td style="padding:8px 12px;">Server load</td><td style="text-align:center;padding:8px 12px;color:var(--green);">Low (persistent conn)</td><td style="text-align:center;padding:8px 12px;color:var(--amber);">High (per-request)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</main>
+
+<script>
+const SERVER = '';
+
+async function refreshAgents() {
+  try {
+    const r = await fetch('/api/rmm/ws-agents');
+    const ws = await r.json();
+    renderWsAgents(ws);
+  } catch(e) {
+    console.error('Failed to fetch WS agents', e);
+  }
+
+  // Also get all agents for HTTP stat
+  try {
+    const r2 = await fetch('/api/rmm/agents');
+    const all = await r2.json();
+    const wsIds = new Set();
+    document.querySelectorAll('#wsAgentTable tr[data-id]').forEach(tr => wsIds.add(tr.dataset.id));
+    const now = Date.now();
+    // Count agents seen in last 10 min as "active"
+    const wsCount = Object.keys(window._wsAgents || {}).length;
+    document.getElementById('stat-total').textContent = all.length;
+  } catch(e) {}
+}
+
+let _wsAgents = {};
+
+function renderWsAgents(agents) {
+  _wsAgents = agents;
+  const tbody = document.getElementById('wsAgentTable');
+  const ids = Object.keys(agents);
+  const liveCount = ids.filter(id => agents[id].status === 'live').length;
+
+  document.getElementById('ws-count').textContent = `${liveCount} live · ${ids.length} total`;
+  document.getElementById('stat-ws').textContent = liveCount;
+
+  if (!ids.length) {
+    tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state"><div class="empty-icon">📡</div><div class="empty-msg">No WebSocket agents connected yet</div></div></td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = ids.map(id => {
+    const a = agents[id];
+    const isLive = a.status === 'live';
+    const seenSince = a.last_seen ? timeSince(a.last_seen) : '—';
+    const cpu = a.cpu_pct != null ? a.cpu_pct + '%' : '—';
+    const ram = (a.ram_used_gb != null && a.ram_total_gb != null) ? `${a.ram_used_gb}/${a.ram_total_gb} GB` : '—';
+    const disk = a.disk_free_gb != null ? a.disk_free_gb + ' GB free' : '—';
+    const os = (a.os || '').replace('Microsoft Windows ', 'Win ').replace('Windows ', 'Win ');
+    const badge = isLive
+      ? `<span class="badge badge-ws"><span class="ws-dot live"></span> Live</span>`
+      : `<span class="badge badge-http"><span class="ws-dot"></span> Offline</span>`;
+    return `<tr data-id="${id}" style="${isLive ? '' : 'opacity:0.6'}">
+      <td><span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-muted)">${id}</span></td>
+      <td><strong>${a.hostname || id}</strong></td>
+      <td>${badge}</td>
+      <td>${cpu}</td>
+      <td>${ram}</td>
+      <td>${disk}</td>
+      <td style="color:var(--text-muted);font-size:12px">${os}</td>
+      <td style="color:var(--text-muted);font-size:12px">${seenSince} ago</td>
+      <td style="text-align:right">
+        <button class="btn btn-secondary btn-sm" onclick="openAgent('${id}')"${isLive ? '' : ' disabled'}>Open Agent</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function timeSince(iso) {
+  const d = new Date(iso);
+  const s = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (s < 60) return s + 's';
+  if (s < 3600) return Math.floor(s/60) + 'm';
+  return Math.floor(s/3600) + 'h ' + Math.floor((s%3600)/60) + 'm';
+}
+
+function openAgent(id) {
+  window.location.href = '/agents?highlight=' + encodeURIComponent(id);
+}
+
+function copyCode(id) {
+  const el = document.getElementById(id);
+  // get text without the button
+  const clone = el.cloneNode(true);
+  clone.querySelectorAll('button').forEach(b => b.remove());
+  navigator.clipboard.writeText(clone.textContent.trim()).then(() => {
+    const btn = el.querySelector('.code-copy');
+    if (btn) { btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = 'Copy', 1500); }
+  });
+}
+
+// Clock
+function tick() {
+  document.getElementById('ts').textContent = new Date().toUTCString().split(' ').slice(4,5)[0] + ' UTC';
+}
+tick(); setInterval(tick, 1000);
+
+// Load install command (requires login — key is embedded server-side)
+async function loadEnrollCmd() {
+  try {
+    const r = await fetch('/api/rmm/enroll-cmd');
+    const d = await r.json();
+    const el = document.getElementById('install-cmd');
+    const btn = el.querySelector('button');
+    el.textContent = d.cmd;
+    el.appendChild(btn);
+  } catch(e) { console.error('Failed to load enroll cmd', e); }
+}
+
+// Init
+refreshAgents();
+loadEnrollCmd();
+setInterval(refreshAgents, 3000);
+</script>
+</body>
+</html>

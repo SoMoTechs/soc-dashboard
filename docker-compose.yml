@@ -1,0 +1,31 @@
+services:
+  soc:
+    build: .
+    image: soc-dashboard:latest
+    container_name: soc-soc-1
+    restart: unless-stopped
+    ports:
+      - "5002:5002"
+    privileged: true
+    volumes:
+      - /dev:/dev:ro
+      - soc_agent_data:/app/data
+      - /home/somo/restic-server:/app/restic-config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /mnt/storage/backups/clients:/app/restic-data
+      - /home/somo/soc-dashboard/secrets:/app/secrets
+      - /home/somo/soc-dashboard/static/scripts:/app/static/scripts
+    networks:
+      - default
+      - npm_default
+    env_file:
+      - .env
+
+volumes:
+  soc_agent_data:
+    external: true
+
+networks:
+  default: {}
+  npm_default:
+    external: true

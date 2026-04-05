@@ -1,0 +1,106 @@
+<!-- SomTechs SOC - local_decoder.xml
+     TP-Link Omada SDN Controller + EAP Access Point syslog decoders
+     Wazuh OS_Regex safe: no ?, no \[, no ^ in prematch, no | in regex
+-->
+
+<decoder name="omada">
+  <program_name>omada|omada_eap|tplink_omada|Omada_Controller</program_name>
+</decoder>
+
+<!-- WLAN: client connect -->
+<decoder name="omada-wlan-connect">
+  <parent>omada</parent>
+  <prematch>connected|associated</prematch>
+  <regex>(\w\w:\w\w:\w\w:\w\w:\w\w:\w\w)</regex>
+  <order>srcmac</order>
+</decoder>
+
+<!-- WLAN: client disconnect -->
+<decoder name="omada-wlan-disconnect">
+  <parent>omada</parent>
+  <prematch>disconnected|deauthenticated|disassociated</prematch>
+  <regex>(\w\w:\w\w:\w\w:\w\w:\w\w:\w\w)</regex>
+  <order>srcmac</order>
+</decoder>
+
+<!-- WLAN: auth failures -->
+<decoder name="omada-wlan-authfail">
+  <parent>omada</parent>
+  <prematch>auth fail|wrong password|EAP fail</prematch>
+  <regex>(\w\w:\w\w:\w\w:\w\w:\w\w:\w\w)</regex>
+  <order>srcmac</order>
+</decoder>
+
+<!-- Firewall / ACL block events -->
+<decoder name="omada-firewall">
+  <parent>omada</parent>
+  <prematch>Firewall|BLOCK|DROP|DENY|blocked</prematch>
+  <regex>(\d+.\d+.\d+.\d+)</regex>
+  <order>srcip</order>
+</decoder>
+
+<!-- Attack detection -->
+<decoder name="omada-attack">
+  <parent>omada</parent>
+  <prematch>Attack|Flood|Scan|Spoof|DoS|DDoS</prematch>
+  <regex>(\d+.\d+.\d+.\d+)</regex>
+  <order>srcip</order>
+</decoder>
+
+<!-- WAN link events -->
+<decoder name="omada-wan">
+  <parent>omada</parent>
+  <prematch>WAN|uplink|failover</prematch>
+</decoder>
+
+<!-- VPN events -->
+<decoder name="omada-vpn">
+  <parent>omada</parent>
+  <prematch>VPN|IPSec|L2TP|OpenVPN|WireGuard</prematch>
+</decoder>
+
+<!-- DHCP lease events -->
+<decoder name="omada-dhcp">
+  <parent>omada</parent>
+  <prematch>DHCP|IP assigned|DHCPACK</prematch>
+  <regex>(\d+.\d+.\d+.\d+)</regex>
+  <order>srcip</order>
+</decoder>
+
+<!-- AP availability -->
+<decoder name="omada-ap-status">
+  <parent>omada</parent>
+  <prematch>AP offline|AP online|Access Point down|Access Point up</prematch>
+</decoder>
+
+<!-- Switch port/STP events -->
+<decoder name="omada-switch">
+  <parent>omada</parent>
+  <prematch>loop detect|STP|spanning tree|link down|port down</prematch>
+</decoder>
+
+<!-- Admin/controller events -->
+<decoder name="omada-admin">
+  <parent>omada</parent>
+  <prematch>admin login|Login success|Login fail|config change|firmware|upgrade</prematch>
+</decoder>
+
+<!-- EAP AP direct syslog (hostapd) -->
+<decoder name="omada-eap-hostapd">
+  <program_name>hostapd</program_name>
+  <prematch>wlan</prematch>
+</decoder>
+
+<decoder name="omada-eap-assoc">
+  <parent>omada-eap-hostapd</parent>
+  <prematch>associated|Association Request</prematch>
+  <regex>STA (\w\w:\w\w:\w\w:\w\w:\w\w:\w\w)</regex>
+  <order>srcmac</order>
+</decoder>
+
+<decoder name="omada-eap-deauth">
+  <parent>omada-eap-hostapd</parent>
+  <prematch>disassociated|deauthenticated|disconnected</prematch>
+  <regex>STA (\w\w:\w\w:\w\w:\w\w:\w\w:\w\w)</regex>
+  <order>srcmac</order>
+</decoder>

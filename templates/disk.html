@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/svg+xml" href="/favicon.ico">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Disk Health — SomoTechs SOC</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080c14;--surface:#0e1420;--surface-2:#141b29;--surface-3:#1a2235;
+  --border:rgba(255,255,255,0.06);--border-2:rgba(255,255,255,0.12);
+  --accent:#1D6FFF;
+  --green:#22c55e;--green-2:#4ade80;
+  --amber:#f59e0b;--amber-2:#fbbf24;
+  --red:#ef4444;--red-2:#f87171;
+  --blue:#3b82f6;--blue-2:#60a5fa;
+  --purple:#8b5cf6;
+  --text:#e8eaf0;--text-muted:#8892a4;--text-subtle:#475569;
+  --sidebar-w:200px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;}
+body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.5;display:flex;}
+body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(circle,rgba(29,111,255,.05) 1px,transparent 1px);background-size:32px 32px;pointer-events:none;z-index:0;}
+body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 60% 50% at 0% 0%,rgba(29,111,255,.07) 0%,transparent 60%),radial-gradient(ellipse 40% 40% at 100% 100%,rgba(59,130,246,.05) 0%,transparent 55%);pointer-events:none;z-index:0;}
+
+/* SIDEBAR */
+.sidebar{width:var(--sidebar-w);background:linear-gradient(180deg,#07090f 0%,#050810 100%);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:50;}
+.sidebar-logo{padding:22px 18px 18px;border-bottom:1px solid var(--border);}
+.logo-mark{display:flex;align-items:center;gap:12px;}
+.logo-icon{width:36px;height:36px;flex-shrink:0;background:linear-gradient(135deg,#1D6FFF 0%,#8b5cf6 100%);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;color:white;box-shadow:0 0 0 1px rgba(29,111,255,.4),0 0 24px rgba(29,111,255,.4);}
+.logo-text{font-size:15px;font-weight:700;color:var(--text);letter-spacing:-.3px;}
+.logo-sub{font-size:10px;color:var(--text-subtle);margin-top:1px;letter-spacing:.5px;text-transform:uppercase;}
+.sidebar-nav{flex:1;padding:14px 10px;overflow-y:auto;}
+.nav-link{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;color:var(--text-muted);text-decoration:none;font-size:13px;font-weight:500;transition:all .15s;margin-bottom:2px;border-left:2px solid transparent;}
+.nav-link:hover{background:rgba(255,255,255,.04);color:var(--text);border-left-color:rgba(255,255,255,.12);}
+.nav-link.active{background:linear-gradient(90deg,rgba(29,111,255,.15) 0%,rgba(29,111,255,.05) 100%);color:#93C5FD;border-left-color:#1D6FFF;font-weight:600;}
+.nav-link.danger:hover{background:rgba(239,68,68,.1);color:var(--red);border-left-color:var(--red);}
+.nav-divider{height:1px;background:var(--border);margin:10px 8px;}
+.sidebar-footer{padding:14px 18px;border-top:1px solid var(--border);}
+.live-badge{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--green);font-weight:600;}
+.live-dot{width:8px;height:8px;background:var(--green);border-radius:50%;flex-shrink:0;box-shadow:0 0 0 2px rgba(34,197,94,.25),0 0 12px rgba(34,197,94,.7);animation:live-pulse 2s ease-in-out infinite;}
+@keyframes live-pulse{0%,100%{box-shadow:0 0 0 2px rgba(34,197,94,.25),0 0 12px rgba(34,197,94,.6);}50%{box-shadow:0 0 0 6px rgba(34,197,94,.06),0 0 24px rgba(34,197,94,.2);}}
+.footer-ts{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-subtle);margin-top:5px;}
+
+/* MAIN */
+.main{margin-left:var(--sidebar-w);flex:1;min-height:100vh;overflow-y:auto;display:flex;flex-direction:column;position:relative;z-index:1;}
+
+/* TOPBAR */
+.topbar{background:rgba(6,9,16,.9);backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);border-bottom:1px solid rgba(255,255,255,.05);padding:0 28px;height:54px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:40;}
+.topbar-left{display:flex;flex-direction:column;}
+.topbar-title{font-size:13px;font-weight:600;color:var(--text);letter-spacing:-.1px;}
+.topbar-sub{font-size:10px;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.6px;}
+.topbar-right{display:flex;align-items:center;gap:12px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-subtle);}
+
+/* PAGE BODY */
+.page-body{padding:16px 20px 32px;display:flex;flex-direction:column;gap:16px;}
+.section-head{display:flex;align-items:center;gap:12px;margin-bottom:4px;}
+.section-title{font-size:10px;font-weight:700;color:var(--text-subtle);text-transform:uppercase;letter-spacing:1px;display:flex;align-items:center;gap:8px;}
+.section-title::before{content:'';display:block;width:3px;height:14px;background:linear-gradient(180deg,var(--accent),transparent);border-radius:2px;}
+.section-line{flex:1;height:1px;background:var(--border);}
+
+/* KPI ROW */
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;}
+.kpi-card{background:var(--surface);background-image:linear-gradient(160deg,rgba(255,255,255,.03),transparent 60%);border:1px solid var(--border);border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:12px;box-shadow:0 4px 24px rgba(0,0,0,.3);}
+.kpi-icon{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;}
+.kpi-icon.blue{background:rgba(59,130,246,.12);}
+.kpi-icon.green{background:rgba(34,197,94,.12);}
+.kpi-icon.amber{background:rgba(245,158,11,.12);}
+.kpi-icon.red{background:rgba(239,68,68,.12);}
+.kpi-icon.purple{background:rgba(139,92,246,.12);}
+.kpi-body{flex:1;min-width:0;}
+.kpi-label{font-size:9px;font-weight:700;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px;}
+.kpi-num{font-size:24px;font-weight:800;line-height:1;letter-spacing:-1px;font-variant-numeric:tabular-nums;}
+.kpi-num.blue{color:var(--blue-2);}
+.kpi-num.green{color:var(--green);}
+.kpi-num.amber{color:var(--amber);}
+.kpi-num.red{color:var(--red);}
+.kpi-num.purple{color:var(--purple);}
+.kpi-sub{font-size:10px;color:var(--text-subtle);margin-top:2px;font-family:'JetBrains Mono',monospace;}
+@media(max-width:1100px){.kpi-row{grid-template-columns:repeat(3,1fr);}}
+
+/* DRIVE GRID */
+.drives-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;}
+.drive-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.3);transition:border-color .2s;}
+.drive-card:hover{border-color:var(--border-2);}
+.drive-card.health-fail{border-color:rgba(239,68,68,.3);}
+.drive-card.health-warn{border-color:rgba(245,158,11,.3);}
+
+.drive-header{padding:14px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);}
+.drive-badge{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;}
+.drive-badge.hdd{background:rgba(59,130,246,.12);box-shadow:inset 0 0 0 1px rgba(59,130,246,.2);}
+.drive-badge.ssd{background:rgba(139,92,246,.12);box-shadow:inset 0 0 0 1px rgba(139,92,246,.2);}
+.drive-badge.nvme{background:rgba(34,197,94,.12);box-shadow:inset 0 0 0 1px rgba(34,197,94,.2);}
+.drive-info{flex:1;min-width:0;}
+.drive-dev{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:var(--text);}
+.drive-model{font-size:11px;color:var(--text-subtle);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px;}
+.drive-health{flex-shrink:0;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:.6px;}
+.health-passed{background:rgba(34,197,94,.12);color:var(--green);border:1px solid rgba(34,197,94,.25);}
+.health-failed{background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.3);animation:health-blink 2s ease-in-out infinite;}
+.health-unknown{background:rgba(71,85,105,.2);color:var(--text-muted);border:1px solid rgba(255,255,255,.08);}
+@keyframes health-blink{0%,100%{box-shadow:none;}50%{box-shadow:0 0 10px rgba(239,68,68,.3);}}
+
+.drive-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--border);}
+.drive-stat{background:var(--surface);padding:10px 14px;}
+.stat-label{font-size:9px;font-weight:700;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px;}
+.stat-val{font-size:14px;font-weight:700;color:var(--text);font-family:'JetBrains Mono',monospace;}
+.stat-val.warn{color:var(--amber);}
+.stat-val.bad{color:var(--red);}
+.stat-val.good{color:var(--green);}
+.stat-val.cool{color:var(--blue-2);}
+
+/* FS TABLE */
+.fs-table{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.3);}
+.fs-head{display:grid;grid-template-columns:220px 1fr 80px 80px 80px 90px;gap:8px;padding:10px 16px;border-bottom:1px solid var(--border);font-size:9px;font-weight:700;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.8px;}
+.fs-row{display:grid;grid-template-columns:220px 1fr 80px 80px 80px 90px;gap:8px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--border);transition:background .15s;}
+.fs-row:last-child{border-bottom:none;}
+.fs-row:hover{background:rgba(255,255,255,.02);}
+.fs-dev{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--blue-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.fs-bar-wrap{display:flex;align-items:center;gap:8px;}
+.fs-bar-bg{flex:1;height:6px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden;}
+.fs-bar-fill{height:100%;border-radius:3px;transition:width .6s ease;}
+.bar-green{background:var(--green);}
+.bar-amber{background:var(--amber);}
+.bar-red{background:var(--red);}
+.fs-pct{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;min-width:32px;text-align:right;}
+.fs-num{font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;}
+.fs-mount{font-size:11px;color:var(--text-subtle);font-family:'JetBrains Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+@media(max-width:900px){
+  .fs-head,.fs-row{grid-template-columns:160px 1fr 70px 60px;}
+}
+
+/* REFRESH BTN */
+.refresh-btn{background:rgba(29,111,255,.12);border:1px solid rgba(29,111,255,.25);color:var(--blue-2);font-size:11px;font-weight:600;padding:5px 14px;border-radius:8px;cursor:pointer;transition:all .2s;font-family:'Inter',sans-serif;}
+.refresh-btn:hover{background:rgba(29,111,255,.22);}
+
+/* EMPTY */
+.empty{text-align:center;padding:32px;color:var(--text-subtle);font-size:12px;}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">
+      <div class="logo-icon">
+        <span style="color:#fff;font-size:15px;font-weight:900;letter-spacing:-1px;">ST</span>
+      </div>
+      <div>
+        <div class="logo-text"><span style="color:#E53935;">Somo</span><span style="color:#60A5FA;">Techs</span></div>
+        <div class="logo-sub">Security Operations Center</div>
+      </div>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <a href="/" class="nav-link">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+      Dashboard
+    </a>
+    <a href="/alerts" class="nav-link">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      Alerts
+    </a>
+    <a href="/threatmap" class="nav-link">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+      Threat Map
+    </a>
+    <a href="/agents" class="nav-link">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      RMM Agents
+    </a>
+    <a href="/blocked" class="nav-link">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+      Blocked IPs
+    </a>
+    <a href="/backups" class="nav-link">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Backups
+    </a>
+    <a href="/clients" class="nav-link">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+      Clients
+    </a>
+    <a href="/disk" class="nav-link active">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+      Disk Health
+    </a>
+    <a href="/tools" class="nav-link">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+      Fix It
+    </a>
+    <a href="/ids" class="nav-link">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      IDS / Network
+    </a>
+    <a href="/policies" class="nav-link">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Policies
+    </a>
+    <a href="/somoagent" class="nav-link">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      SomoAgent
+    </a>
+    <div class="nav-divider"></div>
+    <a href="/logout" class="nav-link danger">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      Sign Out
+    </a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="live-badge"><div class="live-dot"></div>Live</div>
+    <div class="footer-ts" id="sidebar-ts">--:--:-- UTC</div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-title">Disk Health &amp; Storage</div>
+      <div class="topbar-sub">SomoTechs SOC · mainnas</div>
+    </div>
+    <div class="topbar-right">
+      <span id="last-updated" style="color:var(--text-subtle);">Loading...</span>
+      <button class="refresh-btn" onclick="loadData()">↻ Refresh</button>
+    </div>
+  </div>
+
+  <div class="page-body">
+
+    <!-- KPI ROW -->
+    <div class="kpi-row" id="kpi-row">
+      <div class="kpi-card"><div class="kpi-icon blue">💾</div><div class="kpi-body"><div class="kpi-label">Total Drives</div><div class="kpi-num blue" id="kpi-drives">—</div><div class="kpi-sub">physical disks</div></div></div>
+      <div class="kpi-card"><div class="kpi-icon green">✓</div><div class="kpi-body"><div class="kpi-label">SMART OK</div><div class="kpi-num green" id="kpi-ok">—</div><div class="kpi-sub">healthy</div></div></div>
+      <div class="kpi-card"><div class="kpi-icon red">⚠</div><div class="kpi-body"><div class="kpi-label">SMART Warn</div><div class="kpi-num red" id="kpi-warn">—</div><div class="kpi-sub">attention needed</div></div></div>
+      <div class="kpi-card"><div class="kpi-icon amber">📦</div><div class="kpi-body"><div class="kpi-label">Total Storage</div><div class="kpi-num amber" id="kpi-total-tb">—</div><div class="kpi-sub" id="kpi-total-sub">TB raw</div></div></div>
+      <div class="kpi-card"><div class="kpi-icon purple">🌡</div><div class="kpi-body"><div class="kpi-label">Max Temp</div><div class="kpi-num purple" id="kpi-temp">—</div><div class="kpi-sub">°C hottest drive</div></div></div>
+    </div>
+
+    <!-- DRIVES -->
+    <div class="section-head">
+      <div class="section-title">Physical Drives</div>
+      <div class="section-line"></div>
+    </div>
+    <div class="drives-grid" id="drives-grid">
+      <div class="empty">Loading drive data...</div>
+    </div>
+
+    <!-- FILESYSTEMS -->
+    <div class="section-head">
+      <div class="section-title">Filesystems</div>
+      <div class="section-line"></div>
+    </div>
+    <div class="fs-table">
+      <div class="fs-head">
+        <div>Device</div>
+        <div>Usage</div>
+        <div>Size</div>
+        <div>Used</div>
+        <div>Free</div>
+        <div>Mount</div>
+      </div>
+      <div id="fs-body"><div class="empty">Loading...</div></div>
+    </div>
+
+  </div><!-- /page-body -->
+</main>
+
+<script>
+setInterval(function(){
+  var d=new Date();
+  var ts=d.toUTCString().replace('GMT','UTC');
+  var el=document.getElementById('sidebar-ts');
+  if(el)el.textContent=d.getUTCHours().toString().padStart(2,'0')+':'+d.getUTCMinutes().toString().padStart(2,'0')+':'+d.getUTCSeconds().toString().padStart(2,'0')+' UTC';
+},1000);
+
+function fmt(gb){
+  if(gb>=1000)return(gb/1000).toFixed(1)+' TB';
+  return gb.toFixed(1)+' GB';
+}
+
+function barColor(pct){
+  if(pct>=90)return 'bar-red';
+  if(pct>=75)return 'bar-amber';
+  return 'bar-green';
+}
+
+function pctColor(pct){
+  if(pct>=90)return 'color:var(--red)';
+  if(pct>=75)return 'color:var(--amber)';
+  return 'color:var(--green)';
+}
+
+function loadData(){
+  document.getElementById('last-updated').textContent='Refreshing...';
+  fetch('/api/disk/health')
+    .then(r=>r.json())
+    .then(function(data){
+      renderDrives(data.drives||[]);
+      renderFS(data.filesystems||[]);
+      renderKPI(data.drives||[], data.filesystems||[]);
+      document.getElementById('last-updated').textContent='Updated '+new Date().toLocaleTimeString();
+    })
+    .catch(function(e){
+      document.getElementById('drives-grid').innerHTML='<div class="empty">Error loading data</div>';
+    });
+}
+
+function renderKPI(drives, fs){
+  document.getElementById('kpi-drives').textContent=drives.length||'0';
+  var ok=drives.filter(function(d){return d.health==='PASSED';}).length;
+  var warn=drives.filter(function(d){return d.health==='FAILED'||d.reallocated>0||d.pending>0;}).length;
+  document.getElementById('kpi-ok').textContent=ok;
+  document.getElementById('kpi-warn').textContent=warn;
+
+  // total TB from drives (capacity strings like "3.0 TB")
+  var totalTB=0;
+  drives.forEach(function(d){
+    var m=d.capacity.match(/([\d.]+)\s*TB/);
+    if(m)totalTB+=parseFloat(m[1]);
+    else{var m2=d.capacity.match(/([\d.]+)\s*GB/);if(m2)totalTB+=parseFloat(m2[1])/1000;}
+  });
+  document.getElementById('kpi-total-tb').textContent=totalTB?totalTB.toFixed(1)+'T':'—';
+
+  // hottest drive
+  var temps=drives.map(function(d){return d.temp_c;}).filter(function(t){return t!=null;});
+  var maxT=temps.length?Math.max.apply(null,temps):null;
+  document.getElementById('kpi-temp').textContent=maxT!=null?maxT+'°':'—';
+}
+
+function renderDrives(drives){
+  var el=document.getElementById('drives-grid');
+  if(!drives.length){el.innerHTML='<div class="empty">No drives found — smartctl may need elevated access</div>';return;}
+  var html='';
+  drives.forEach(function(d){
+    var type=d.type||'HDD';
+    var badgeClass=type==='NVMe'?'nvme':type==='SSD'?'ssd':'hdd';
+    var badgeIcon=type==='NVMe'?'⚡':type==='SSD'?'💿':'🖴';
+    var healthClass=d.health==='PASSED'?'health-passed':d.health==='FAILED'?'health-failed':'health-unknown';
+    var cardClass=d.health==='FAILED'?'drive-card health-fail':(d.reallocated>0||d.pending>0)?'drive-card health-warn':'drive-card';
+
+    var tempVal=d.temp_c!=null?d.temp_c+'°C':'—';
+    var tempClass=d.temp_c!=null?(d.temp_c>=55?'bad':d.temp_c>=45?'warn':'cool'):'';
+
+    var hoursVal=d.power_on_hours!=null?d.power_on_hours.toLocaleString()+' h':'—';
+
+    var reallocClass=d.reallocated>0?'bad':'good';
+    var pendClass=d.pending>0?'warn':'good';
+
+    html+=`<div class="${cardClass}">
+      <div class="drive-header">
+        <div class="drive-badge ${badgeClass}">${badgeIcon}</div>
+        <div class="drive-info">
+          <div class="drive-dev">${d.device}</div>
+          <div class="drive-model">${d.model||'Unknown model'} ${d.capacity?'· '+d.capacity:''}</div>
+        </div>
+        <div class="drive-health ${healthClass}">${d.health}</div>
+      </div>
+      <div class="drive-stats">
+        <div class="drive-stat">
+          <div class="stat-label">Temp</div>
+          <div class="stat-val ${tempClass}">${tempVal}</div>
+        </div>
+        <div class="drive-stat">
+          <div class="stat-label">Power On</div>
+          <div class="stat-val">${hoursVal}</div>
+        </div>
+        <div class="drive-stat">
+          <div class="stat-label">Type</div>
+          <div class="stat-val" style="color:var(--text-muted)">${type}${d.rpm?' '+d.rpm+'rpm':''}</div>
+        </div>
+        <div class="drive-stat">
+          <div class="stat-label">Reallocated</div>
+          <div class="stat-val ${reallocClass}">${d.reallocated}</div>
+        </div>
+        <div class="drive-stat">
+          <div class="stat-label">Pending</div>
+          <div class="stat-val ${pendClass}">${d.pending}</div>
+        </div>
+        <div class="drive-stat">
+          <div class="stat-label">Uncorrectable</div>
+          <div class="stat-val ${d.uncorrectable>0?'bad':'good'}">${d.uncorrectable}</div>
+        </div>
+      </div>
+    </div>`;
+  });
+  el.innerHTML=html;
+}
+
+function renderFS(fsList){
+  var el=document.getElementById('fs-body');
+  if(!fsList.length){el.innerHTML='<div class="empty">No filesystems found</div>';return;}
+  var html='';
+  fsList.forEach(function(fs){
+    var bc=barColor(fs.pct);
+    var pc=pctColor(fs.pct);
+    html+=`<div class="fs-row">
+      <div class="fs-dev" title="${fs.device}">${fs.device}</div>
+      <div class="fs-bar-wrap">
+        <div class="fs-bar-bg"><div class="fs-bar-fill ${bc}" style="width:${fs.pct}%"></div></div>
+        <div class="fs-pct" style="${pc}">${fs.pct}%</div>
+      </div>
+      <div class="fs-num">${fmt(fs.size_gb)}</div>
+      <div class="fs-num">${fmt(fs.used_gb)}</div>
+      <div class="fs-num">${fmt(fs.avail_gb)}</div>
+      <div class="fs-mount" title="${fs.mountpoint}">${fs.mountpoint}</div>
+    </div>`;
+  });
+  el.innerHTML=html;
+}
+
+loadData();
+setInterval(loadData, 120000);
+</script>
+</body>
+</html>

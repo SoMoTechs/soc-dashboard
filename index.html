@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SomTechs SOC Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=JetBrains+Mono:wght@400;500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #020408;
+  --surface: #080d18;
+  --surface2: #0d1525;
+  --border: #1a2540;
+  --accent: #00ff88;
+  --accent2: #00ccff;
+  --yellow: #ffcc00;
+  --red: #ff3d57;
+  --orange: #ff8c00;
+  --text: #e0f0ff;
+  --muted: #3a5070;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; min-height: 100vh; overflow-x: hidden; }
+
+/* Animated background */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 10% 20%, rgba(0,255,136,0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at 90% 80%, rgba(0,204,255,0.04) 0%, transparent 50%),
+    linear-gradient(rgba(0,255,136,0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,255,136,0.015) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.container { max-width: 1600px; margin: 0 auto; padding: 0 20px; position: relative; z-index: 1; }
+
+/* Header */
+header {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  background: rgba(2,4,8,0.95);
+  backdrop-filter: blur(10px);
+  z-index: 100;
+}
+
+.logo-area { display: flex; align-items: center; gap: 16px; }
+.logo { font-family: 'Rajdhani', sans-serif; font-size: 22px; font-weight: 700; letter-spacing: 4px; color: var(--accent); }
+.logo span { color: var(--muted); font-size: 11px; letter-spacing: 2px; display: block; margin-top: -4px; }
+
+.header-stats { display: flex; gap: 24px; align-items: center; }
+.hstat { text-align: center; }
+.hstat-val { font-family: 'Rajdhani', sans-serif; font-size: 20px; font-weight: 700; line-height: 1; }
+.hstat-lbl { font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+
+.header-right { display: flex; align-items: center; gap: 16px; }
+.live-indicator { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--accent); letter-spacing: 1px; }
+.live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 2s infinite; }
+.last-update { font-size: 11px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+.logout-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 11px; letter-spacing: 1px; text-decoration: none; transition: all 0.2s; }
+.logout-btn:hover { border-color: var(--red); color: var(--red); }
+
+/* Grid layout */
+.dashboard { padding: 20px 0; display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; }
+
+/* Cards */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+  animation: fadeUp 0.5s ease forwards;
+  opacity: 0;
+}
+.card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; }
+.card.green::before { background: linear-gradient(90deg, transparent, var(--accent), transparent); }
+.card.blue::before { background: linear-gradient(90deg, transparent, var(--accent2), transparent); }
+.card.red::before { background: linear-gradient(90deg, transparent, var(--red), transparent); }
+.card.yellow::before { background: linear-gradient(90deg, transparent, var(--yellow), transparent); }
+.card.orange::before { background: linear-gradient(90deg, transparent, var(--orange), transparent); }
+
+/* Span columns */
+.col-3 { grid-column: span 3; }
+.col-4 { grid-column: span 4; }
+.col-6 { grid-column: span 6; }
+.col-8 { grid-column: span 8; }
+.col-12 { grid-column: span 12; }
+
+.card-title { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; }
+.card-title-badge { background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.2); color: var(--accent); padding: 2px 8px; border-radius: 4px; font-size: 9px; letter-spacing: 1px; }
+
+/* Big stat */
+.big-stat { font-family: 'Rajdhani', sans-serif; font-size: 56px; font-weight: 700; line-height: 1; }
+.big-stat.green { color: var(--accent); }
+.big-stat.blue { color: var(--accent2); }
+.big-stat.red { color: var(--red); }
+.big-stat.yellow { color: var(--yellow); }
+.big-label { font-size: 11px; color: var(--muted); margin-top: 4px; letter-spacing: 1px; }
+
+/* Alert severity bars */
+.severity-bar { margin-bottom: 10px; }
+.severity-label { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px; }
+.severity-track { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.severity-fill { height: 100%; border-radius: 2px; transition: width 0.5s ease; }
+.fill-red { background: var(--red); }
+.fill-yellow { background: var(--yellow); }
+.fill-green { background: var(--accent); }
+
+/* Agent list */
+.agent-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(26,37,64,0.5); }
+.agent-item:last-child { border-bottom: none; }
+.agent-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.agent-dot.online { background: var(--accent); box-shadow: 0 0 6px var(--accent); animation: pulse 2s infinite; }
+.agent-dot.offline { background: var(--muted); }
+.agent-name { font-size: 13px; font-family: 'JetBrains Mono', monospace; flex: 1; }
+.agent-ip { font-size: 11px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+.agent-os { font-size: 10px; color: var(--muted); }
+
+/* Alert feed */
+.alert-item { padding: 8px 12px; border-radius: 6px; margin-bottom: 6px; border-left: 3px solid; background: rgba(255,255,255,0.02); }
+.alert-item.high { border-color: var(--red); }
+.alert-item.medium { border-color: var(--yellow); }
+.alert-item.low { border-color: var(--muted); }
+.alert-rule { font-size: 12px; color: var(--text); margin-bottom: 3px; }
+.alert-meta { font-size: 10px; color: var(--muted); display: flex; gap: 12px; font-family: 'JetBrains Mono', monospace; }
+.alert-level { padding: 1px 6px; border-radius: 3px; font-size: 9px; font-weight: 600; }
+.level-high { background: rgba(255,61,87,0.2); color: var(--red); }
+.level-med { background: rgba(255,204,0,0.2); color: var(--yellow); }
+.level-low { background: rgba(58,80,112,0.3); color: var(--muted); }
+
+/* CrowdSec */
+.blocked-item { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid rgba(26,37,64,0.5); font-size: 12px; font-family: 'JetBrains Mono', monospace; }
+.blocked-item:last-child { border-bottom: none; }
+.blocked-ip { color: var(--red); flex: 1; }
+.blocked-reason { color: var(--muted); font-size: 10px; }
+
+/* Stat row */
+.stat-row { display: flex; gap: 16px; margin-bottom: 16px; }
+.mini-stat { flex: 1; text-align: center; background: var(--surface2); border-radius: 8px; padding: 12px 8px; }
+.mini-stat-val { font-family: 'Rajdhani', sans-serif; font-size: 28px; font-weight: 700; line-height: 1; }
+.mini-stat-lbl { font-size: 9px; color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase; margin-top: 2px; }
+
+/* Threat meter */
+.threat-meter { margin-top: 12px; }
+.threat-level { font-family: 'Rajdhani', sans-serif; font-size: 32px; font-weight: 700; }
+.threat-bar { height: 8px; background: var(--border); border-radius: 4px; margin-top: 8px; overflow: hidden; }
+.threat-fill { height: 100%; border-radius: 4px; transition: width 1s ease; background: linear-gradient(90deg, var(--accent), var(--yellow), var(--red)); }
+
+/* Loading */
+.loading { text-align: center; padding: 20px; color: var(--muted); font-size: 12px; animation: blink 1s infinite; }
+
+/* Animations */
+@keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+.card:nth-child(1) { animation-delay: 0.05s; }
+.card:nth-child(2) { animation-delay: 0.1s; }
+.card:nth-child(3) { animation-delay: 0.15s; }
+.card:nth-child(4) { animation-delay: 0.2s; }
+.card:nth-child(5) { animation-delay: 0.25s; }
+.card:nth-child(6) { animation-delay: 0.3s; }
+.card:nth-child(7) { animation-delay: 0.35s; }
+.card:nth-child(8) { animation-delay: 0.4s; }
+.card:nth-child(9) { animation-delay: 0.45s; }
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .col-3 { grid-column: span 6; }
+  .col-4 { grid-column: span 6; }
+}
+@media (max-width: 768px) {
+  .col-3, .col-4, .col-6, .col-8 { grid-column: span 12; }
+  .header-stats { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="logo-area">
+      <div>
+        <div class="logo">SomTechs</div>
+        <span class="logo" style="font-size:10px;letter-spacing:3px;color:var(--muted);">SECURITY OPERATIONS</span>
+      </div>
+    </div>
+    <div class="header-stats">
+      <div class="hstat">
+        <div class="hstat-val green" id="h-agents-online">--</div>
+        <div class="hstat-lbl">Agents Online</div>
+      </div>
+      <div class="hstat">
+        <div class="hstat-val yellow" id="h-alerts-24h">--</div>
+        <div class="hstat-lbl">Alerts 24h</div>
+      </div>
+      <div class="hstat">
+        <div class="hstat-val red" id="h-blocked">--</div>
+        <div class="hstat-lbl">IPs Blocked</div>
+      </div>
+      <div class="hstat">
+        <div class="hstat-val blue" id="h-devices">--</div>
+        <div class="hstat-lbl">Remote Devices</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="live-indicator"><div class="live-dot"></div>LIVE</div>
+      <div class="last-update" id="last-update">--:--:-- UTC</div>
+      <a href="/logout" class="logout-btn">LOGOUT</a>
+    </div>
+  </header>
+
+  <div class="dashboard">
+
+    <!-- Agents Online -->
+    <div class="card green col-3">
+      <div class="card-title">Wazuh Agents <span class="card-title-badge">LIVE</span></div>
+      <div class="big-stat green" id="agents-online">--</div>
+      <div class="big-label">ONLINE</div>
+      <div style="margin-top:8px;font-size:11px;color:var(--muted)"><span id="agents-offline">--</span> offline · <span id="agents-total">--</span> total</div>
+    </div>
+
+    <!-- Total Alerts -->
+    <div class="card yellow col-3">
+      <div class="card-title">Alerts 24h</div>
+      <div class="big-stat yellow" id="alerts-total">--</div>
+      <div class="big-label">TOTAL EVENTS</div>
+      <div style="margin-top:12px;">
+        <div class="severity-bar">
+          <div class="severity-label"><span style="color:var(--red)">HIGH</span><span id="alerts-high">0</span></div>
+          <div class="severity-track"><div class="severity-fill fill-red" id="bar-high" style="width:0%"></div></div>
+        </div>
+        <div class="severity-bar">
+          <div class="severity-label"><span style="color:var(--yellow)">MEDIUM</span><span id="alerts-med">0</span></div>
+          <div class="severity-track"><div class="severity-fill fill-yellow" id="bar-med" style="width:0%"></div></div>
+        </div>
+        <div class="severity-bar">
+          <div class="severity-label"><span style="color:var(--accent)">LOW</span><span id="alerts-low">0</span></div>
+          <div class="severity-track"><div class="severity-fill fill-green" id="bar-low" style="width:0%"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CrowdSec -->
+    <div class="card red col-3">
+      <div class="card-title">CrowdSec</div>
+      <div class="big-stat red" id="blocked-count">--</div>
+      <div class="big-label">IPs BLOCKED</div>
+      <div style="margin-top:12px;" id="blocked-list">
+        <div class="loading">Loading...</div>
+      </div>
+    </div>
+
+    <!-- Remote Devices -->
+    <div class="card blue col-3">
+      <div class="card-title">Remote Devices</div>
+      <div class="big-stat blue" id="devices-online">--</div>
+      <div class="big-label">RUSTDESK ONLINE</div>
+      <div style="margin-top:8px;font-size:11px;color:var(--muted)"><span id="devices-total">--</span> total registered</div>
+      <div style="margin-top:16px;">
+        <a href="https://rdash.somotechs.com" target="_blank" style="display:block;text-align:center;padding:8px;background:rgba(0,204,255,0.1);border:1px solid rgba(0,204,255,0.2);border-radius:6px;color:var(--accent2);font-size:11px;letter-spacing:2px;text-decoration:none;text-transform:uppercase;">Open Dashboard →</a>
+      </div>
+    </div>
+
+    <!-- Recent Alerts Feed -->
+    <div class="card red col-8" style="animation-delay:0.3s">
+      <div class="card-title">Recent Security Alerts <span class="card-title-badge">LAST 10</span></div>
+      <div id="alerts-feed">
+        <div class="loading">Loading alerts...</div>
+      </div>
+    </div>
+
+    <!-- Agent List -->
+    <div class="card green col-4" style="animation-delay:0.35s">
+      <div class="card-title">Agent Status</div>
+      <div id="agent-list">
+        <div class="loading">Loading agents...</div>
+      </div>
+    </div>
+
+    <!-- Quick Links -->
+    <div class="card blue col-12" style="animation-delay:0.4s">
+      <div class="card-title">Quick Access</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;">
+        <a href="https://wazuh.somotechs.com" target="_blank" class="quick-link" style="display:block;padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;text-align:center;text-decoration:none;transition:all 0.2s;">
+          <div style="font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:600;color:var(--accent);letter-spacing:1px;">WAZUH</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px;">SIEM Dashboard</div>
+        </a>
+        <a href="https://grafana.somotechs.com" target="_blank" class="quick-link" style="display:block;padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;text-align:center;text-decoration:none;transition:all 0.2s;">
+          <div style="font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:600;color:var(--orange);letter-spacing:1px;">GRAFANA</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px;">Metrics</div>
+        </a>
+        <a href="https://netdata.somotechs.com" target="_blank" class="quick-link" style="display:block;padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;text-align:center;text-decoration:none;transition:all 0.2s;">
+          <div style="font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:600;color:var(--accent2);letter-spacing:1px;">NETDATA</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px;">System Health</div>
+        </a>
+        <a href="https://rdash.somotechs.com" target="_blank" class="quick-link" style="display:block;padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;text-align:center;text-decoration:none;transition:all 0.2s;">
+          <div style="font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:600;color:var(--yellow);letter-spacing:1px;">RUSTDESK</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px;">Remote Access</div>
+        </a>
+        <a href="https://portainer.somotechs.com" target="_blank" class="quick-link" style="display:block;padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;text-align:center;text-decoration:none;transition:all 0.2s;">
+          <div style="font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:600;color:var(--accent);letter-spacing:1px;">PORTAINER</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px;">Containers</div>
+        </a>
+        <a href="https://npm.somotechs.com" target="_blank" class="quick-link" style="display:block;padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;text-align:center;text-decoration:none;transition:all 0.2s;">
+          <div style="font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:600;color:var(--accent2);letter-spacing:1px;">NPM</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px;">Proxy Manager</div>
+        </a>
+        <a href="https://soc.somotechs.com" target="_blank" class="quick-link" style="display:block;padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;text-align:center;text-decoration:none;transition:all 0.2s;">
+          <div style="font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:600;color:var(--orange);letter-spacing:1px;">HELPDESK</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px;">Tickets</div>
+        </a>
+        <a href="https://backup.somotechs.com" target="_blank" class="quick-link" style="display:block;padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;text-align:center;text-decoration:none;transition:all 0.2s;">
+          <div style="font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:600;color:var(--yellow);letter-spacing:1px;">BACKREST</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px;">Backups</div>
+        </a>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function getAlertClass(level) {
+  if (level >= 12) return 'high';
+  if (level >= 7) return 'medium';
+  return 'low';
+}
+function getLevelBadge(level) {
+  if (level >= 12) return '<span class="alert-level level-high">HIGH ' + level + '</span>';
+  if (level >= 7) return '<span class="alert-level level-med">MED ' + level + '</span>';
+  return '<span class="alert-level" style="background:rgba(58,80,112,0.3);color:var(--muted)">LOW ' + level + '</span>';
+}
+function timeAgo(ts) {
+  try {
+    const d = new Date(ts);
+    const diff = Math.floor((Date.now() - d)/1000);
+    if (diff < 60) return diff + 's ago';
+    if (diff < 3600) return Math.floor(diff/60) + 'm ago';
+    return Math.floor(diff/3600) + 'h ago';
+  } catch { return ts; }
+}
+
+function updateDashboard(data) {
+  // Header stats
+  document.getElementById('h-agents-online').textContent = data.agents.online;
+  document.getElementById('h-alerts-24h').textContent = data.alerts.total;
+  document.getElementById('h-blocked').textContent = data.crowdsec.blocked;
+  document.getElementById('h-devices').textContent = data.rustdesk.total;
+  document.getElementById('last-update').textContent = data.updated;
+
+  // Agent card
+  document.getElementById('agents-online').textContent = data.agents.online;
+  document.getElementById('agents-offline').textContent = data.agents.offline;
+  document.getElementById('agents-total').textContent = data.agents.total;
+
+  // Alerts card
+  const total = data.alerts.total || 1;
+  document.getElementById('alerts-total').textContent = data.alerts.total;
+  document.getElementById('alerts-high').textContent = data.alerts.high;
+  document.getElementById('alerts-med').textContent = data.alerts.medium;
+  document.getElementById('alerts-low').textContent = data.alerts.low;
+  document.getElementById('bar-high').style.width = Math.min(100, (data.alerts.high/total)*100) + '%';
+  document.getElementById('bar-med').style.width = Math.min(100, (data.alerts.medium/total)*100) + '%';
+  document.getElementById('bar-low').style.width = Math.min(100, (data.alerts.low/total)*100) + '%';
+
+  // Devices
+  document.getElementById('devices-online').textContent = data.rustdesk.online;
+  document.getElementById('devices-total').textContent = data.rustdesk.total;
+
+  // CrowdSec
+  document.getElementById('blocked-count').textContent = data.crowdsec.blocked;
+  const blockedList = document.getElementById('blocked-list');
+  if (data.crowdsec.decisions && data.crowdsec.decisions.length > 0) {
+    blockedList.innerHTML = data.crowdsec.decisions.map(d => `
+      <div class="blocked-item">
+        <span class="blocked-ip">${d.value || 'Unknown'}</span>
+        <span class="blocked-reason">${d.reason || 'ban'}</span>
+      </div>`).join('');
+  } else {
+    blockedList.innerHTML = '<div style="font-size:11px;color:var(--muted);text-align:center;padding:8px;">No active blocks</div>';
+  }
+
+  // Alerts feed
+  const feed = document.getElementById('alerts-feed');
+  if (data.recent_alerts && data.recent_alerts.length > 0) {
+    feed.innerHTML = data.recent_alerts.map(a => `
+      <div class="alert-item ${getAlertClass(a.level)}">
+        <div class="alert-rule">${a.rule}</div>
+        <div class="alert-meta">
+          ${getLevelBadge(a.level)}
+          <span>🖥 ${a.agent}</span>
+          <span>⏱ ${timeAgo(a.time)}</span>
+          <span style="color:var(--muted)">Rule ${a.id}</span>
+        </div>
+      </div>`).join('');
+  } else {
+    feed.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:12px;">No recent alerts</div>';
+  }
+
+  // Agent list
+  const agentList = document.getElementById('agent-list');
+  if (data.agents.list && data.agents.list.length > 0) {
+    agentList.innerHTML = data.agents.list.slice(0,8).map(a => `
+      <div class="agent-item">
+        <div class="agent-dot ${a.status === 'active' ? 'online' : 'offline'}"></div>
+        <div>
+          <div class="agent-name">${a.name}</div>
+          <div class="agent-ip">${a.ip || 'N/A'} · ${a.os?.platform || ''}</div>
+        </div>
+      </div>`).join('');
+  } else {
+    agentList.innerHTML = '<div class="loading">No agents found</div>';
+  }
+}
+
+function fetchData() {
+  fetch('/api/data')
+    .then(r => r.json())
+    .then(data => updateDashboard(data))
+    .catch(e => console.error('Error:', e));
+}
+
+fetchData();
+setInterval(fetchData, 30000);
+</script>
+</body>
+</html>

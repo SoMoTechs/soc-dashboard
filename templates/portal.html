@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/svg+xml" href="/favicon.ico">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{ label }} — {% if portal_company %}{{ portal_company }}{% else %}SomoShield{% endif %} Security Portal</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#06070c;--surface:#0d0f17;--surface-2:#111420;
+  --border:rgba(255,255,255,0.07);--border-2:rgba(255,255,255,0.13);
+  --accent:{{ accent_color if accent_color else '#1D6FFF' }};
+  --green:#22c55e;--amber:#f59e0b;--red:#ef4444;
+  --text:#e8eaf0;--text-muted:#8892a4;--text-subtle:#475569;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;}
+body{background-image:radial-gradient(ellipse 70% 50% at 15% 20%,rgba(29,111,255,.07) 0%,transparent 60%),radial-gradient(ellipse 50% 40% at 85% 80%,rgba(99,102,241,.05) 0%,transparent 50%);}
+.header{background:linear-gradient(180deg,rgba(13,15,23,.95) 0%,rgba(13,15,23,.85) 100%);border-bottom:1px solid var(--border);padding:20px 32px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;backdrop-filter:blur(20px);}
+.logo-row{display:flex;align-items:center;gap:14px;}
+.logo-icon{width:40px;height:40px;background:linear-gradient(135deg,#1D6FFF,#8b5cf6);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#fff;box-shadow:0 0 0 1px rgba(99,102,241,.4),0 4px 20px rgba(29,111,255,.3);}
+.logo-text{font-size:16px;font-weight:700;}
+.logo-sub{font-size:11px;color:var(--text-subtle);margin-top:1px;}
+.header-right{text-align:right;}
+.client-badge{background:rgba(29,111,255,.12);border:1px solid rgba(29,111,255,.3);color:#93C5FD;padding:5px 14px;border-radius:20px;font-size:12px;font-weight:600;}
+.ts-label{font-size:10px;color:var(--text-subtle);margin-top:4px;font-family:'JetBrains Mono',monospace;}
+.body{padding:28px 32px 48px;max-width:1100px;margin:0 auto;}
+.section-title{font-size:11px;font-weight:600;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px;display:flex;align-items:center;gap:6px;}
+/* stat grid */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:28px;}
+.stat-card{background:var(--surface);background-image:linear-gradient(160deg,rgba(255,255,255,.025) 0%,transparent 50%);border:1px solid var(--border);border-radius:14px;padding:20px 24px;box-shadow:0 4px 24px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.04);}
+.stat-num{font-size:36px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;}
+.stat-num.g{color:var(--green);text-shadow:0 0 24px rgba(34,197,94,.3);}
+.stat-num.a{color:var(--amber);text-shadow:0 0 24px rgba(245,158,11,.3);}
+.stat-num.r{color:var(--red);text-shadow:0 0 24px rgba(239,68,68,.3);}
+.stat-num.b{color:#93C5FD;}
+.stat-label{font-size:11px;color:var(--text-subtle);margin-top:8px;text-transform:uppercase;letter-spacing:.4px;}
+.stat-sub{font-size:10px;color:var(--text-muted);margin-top:4px;}
+/* status panel */
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;}
+.panel-hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border);}
+.panel-hdr-title{font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;}
+.panel-body{padding:16px 20px;}
+/* machine table */
+.mtable{width:100%;border-collapse:collapse;}
+.mtable th{padding:8px 14px;font-size:10px;font-weight:600;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--border);background:var(--surface-2);}
+.mtable td{padding:10px 14px;font-size:12px;border-bottom:1px solid rgba(255,255,255,.04);font-family:'JetBrains Mono',monospace;color:var(--text-muted);}
+.mtable tr:last-child td{border-bottom:none;}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:5px;}
+.dot-g{background:var(--green);box-shadow:0 0 5px var(--green);}
+.dot-a{background:var(--amber);}
+.dot-r{background:var(--red);}
+.badge{display:inline-block;padding:2px 8px;font-size:10px;font-weight:600;border-radius:4px;}
+.badge-ok{background:rgba(34,197,94,.1);color:var(--green);border:1px solid rgba(34,197,94,.25);}
+.badge-warn{background:rgba(245,158,11,.1);color:var(--amber);border:1px solid rgba(245,158,11,.25);}
+.badge-stale,.badge-error{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.25);}
+.badge-none{background:rgba(255,255,255,.04);color:var(--text-subtle);border:1px solid var(--border);}
+/* security score */
+.score-wrap{display:flex;align-items:center;gap:20px;padding:20px;background:var(--surface-2);border-radius:10px;margin-bottom:20px;}
+.score-circle{width:80px;height:80px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:22px;font-weight:700;position:relative;}
+.score-label{font-size:11px;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;}
+.score-desc{font-size:13px;color:var(--text-muted);}
+/* footer */
+.footer{border-top:1px solid var(--border);padding:20px 32px;display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--text-subtle);}
+.footer a{color:var(--text-muted);text-decoration:none;}
+@media(max-width:600px){
+  .header{padding:16px;flex-direction:column;gap:10px;align-items:flex-start;}
+  .body{padding:16px 16px 40px;}
+  .stat-grid{grid-template-columns:1fr 1fr;}
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="logo-row">
+    {% if logo_url %}
+      <img src="{{ logo_url }}" alt="{{ portal_company or client }}" style="height:40px;width:auto;border-radius:6px;object-fit:contain;">
+    {% else %}
+      <div class="logo-icon">🛡️</div>
+    {% endif %}
+    <div>
+      <div class="logo-text">{{ portal_company or client }}</div>
+      <div class="logo-sub">Managed Security Portal</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="client-badge">{{ label }}</div>
+    <div class="ts-label" id="ts">Updating...</div>
+  </div>
+</header>
+
+<div class="body">
+
+  <!-- SECURITY SCORE -->
+  <div class="score-wrap" id="score-wrap">
+    <div class="score-circle" id="score-circle" style="background:rgba(34,197,94,.12);border:3px solid var(--green);color:var(--green);">--</div>
+    <div>
+      <div class="score-label">Security Coverage Score</div>
+      <div class="score-desc" id="score-desc">Loading protection status...</div>
+      <div style="font-size:11px;color:var(--text-subtle);margin-top:6px;">Beacon RMM · Wazuh SIEM · Restic Backup</div>
+    </div>
+  </div>
+
+  <!-- KPI STRIP -->
+  <div class="section-title">Current Status</div>
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-num g" id="kpi-blocked">--</div>
+      <div class="stat-label">Threats Blocked</div>
+      <div class="stat-sub">Active CrowdSec bans</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num b" id="kpi-machines">--</div>
+      <div class="stat-label">Managed Machines</div>
+      <div class="stat-sub" id="kpi-online-sub">-- online</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num" id="kpi-alerts" style="color:#93C5FD">--</div>
+      <div class="stat-label">Alerts 7 Days</div>
+      <div class="stat-sub" id="kpi-alerts-sub">-- critical</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num" id="kpi-backup" style="color:var(--green)">--</div>
+      <div class="stat-label">Backups OK</div>
+      <div class="stat-sub" id="kpi-backup-sub">of -- machines</div>
+    </div>
+  </div>
+
+  <!-- MACHINE STATUS -->
+  <div class="panel">
+    <div class="panel-hdr">
+      <div class="panel-hdr-title">🖥 Protected Machines</div>
+      <span id="machine-count" style="font-size:11px;color:var(--text-subtle)"></span>
+    </div>
+    <div id="machine-table"><div style="padding:16px;font-size:12px;color:var(--text-subtle)">Loading...</div></div>
+  </div>
+
+  <!-- THREAT SUMMARY -->
+  <div class="panel">
+    <div class="panel-hdr">
+      <div class="panel-hdr-title">🛡 Threat Intelligence — Last 7 Days</div>
+    </div>
+    <div class="panel-body" id="threat-panel">
+      <div style="font-size:12px;color:var(--text-subtle)">Loading...</div>
+    </div>
+  </div>
+
+</div>
+
+<footer class="footer">
+  <div>Powered by <strong>SomoShield</strong> · Managed by SomoTechs · (417) 390-5129</div>
+  <div>Confidential · For {{ label }} use only</div>
+</footer>
+
+<script>
+const CLIENT='{{ client }}';
+const TOKEN='{{ token }}';
+
+function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function updateTs(){
+  const el=document.getElementById('ts');
+  if(el)el.textContent='Updated '+new Date().toLocaleString();
+}
+
+function loadPortal(){
+  // Client health
+  fetch('/api/health/clients?pt='+encodeURIComponent(TOKEN)).then(r=>r.json()).then(d=>{
+    if(!d.ok||!d.clients)return;
+    const client=d.clients.find(c=>c.name===CLIENT)||d.clients[0];
+    if(!client)return;
+
+    // Score
+    const sc=client.score;
+    const scoreEl=document.getElementById('score-circle');
+    const descEl=document.getElementById('score-desc');
+    scoreEl.textContent=sc+'%';
+    if(sc>=80){
+      scoreEl.style.color='var(--green)';scoreEl.style.borderColor='var(--green)';scoreEl.style.background='rgba(34,197,94,.12)';
+      descEl.textContent='Strong coverage — all key agents active across most machines.';
+    }else if(sc>=50){
+      scoreEl.style.color='var(--amber)';scoreEl.style.borderColor='var(--amber)';scoreEl.style.background='rgba(245,158,11,.12)';
+      descEl.textContent='Partial coverage — some machines need agent enrollment.';
+    }else{
+      scoreEl.style.color='var(--red)';scoreEl.style.borderColor='var(--red)';scoreEl.style.background='rgba(239,68,68,.12)';
+      descEl.textContent='Low coverage — multiple machines are unprotected.';
+    }
+
+    // KPI machines
+    document.getElementById('kpi-machines').textContent=client.total;
+    document.getElementById('kpi-online-sub').textContent=client.beacon_online+' online now';
+    document.getElementById('kpi-backup').textContent=client.backup_ok;
+    document.getElementById('kpi-backup-sub').textContent='of '+client.total+' machines';
+    document.getElementById('machine-count').textContent=client.total+' machines';
+
+    // Machine table
+    const html=`<table class="mtable">
+      <thead><tr><th>Machine</th><th>Status</th><th>Security</th><th>Last Backup</th></tr></thead>
+      <tbody>${client.machines.map(m=>{
+        const online=m.beacon_online;
+        const dotCls=online?'dot-g':'dot-r';
+        const statusText=online?'Online':'Offline';
+        const secScore=[m.wazuh?'Wazuh':'',m.backup_status==='ok'?'Backup':''].filter(Boolean).join(' · ')||'Needs attention';
+        const bk=m.backup_last||m.backup_status||'—';
+        return`<tr>
+          <td style="color:var(--text);font-family:'Inter',sans-serif;font-weight:600;">${escHtml(m.hostname)}</td>
+          <td><span class="dot ${dotCls}"></span>${statusText}</td>
+          <td style="color:var(--text-muted)">${escHtml(secScore)}</td>
+          <td>${escHtml(bk)}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>`;
+    document.getElementById('machine-table').innerHTML=html;
+  });
+
+  // Weekly report for stats
+  fetch('/api/reports/weekly?pt='+encodeURIComponent(TOKEN)).then(r=>r.json()).then(d=>{
+    const a=d.alerts_7d||{};
+    document.getElementById('kpi-alerts').textContent=(a.total||0).toLocaleString();
+    document.getElementById('kpi-alerts-sub').textContent=(a.critical||0)+' critical this week';
+
+    const sc=d.top_scenarios||[];
+    const bk=d.backups||{};
+    document.getElementById('threat-panel').innerHTML=`
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;">
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px;">Alert Breakdown</div>
+          ${[['Critical',a.critical,'var(--red)'],['High',a.high,'var(--amber)'],['Medium',a.medium,'#93C5FD']].map(([l,n,c])=>`
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);">
+              <span style="font-size:12px;color:var(--text-muted);">${l}</span>
+              <span style="font-size:12px;font-weight:600;color:${c};font-family:'JetBrains Mono',monospace;">${n||0}</span>
+            </div>`).join('')}
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px;">Top Attack Types</div>
+          ${sc.length?sc.slice(0,4).map(s=>`
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);">
+              <span style="font-size:11px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px;">${escHtml(s.name.split('/').pop())}</span>
+              <span style="font-size:11px;font-weight:600;color:var(--red);font-family:'JetBrains Mono',monospace;">×${s.count}</span>
+            </div>`).join(''):'<div style="font-size:12px;color:var(--green)">✓ No significant attack patterns detected</div>'}
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px;">Backup Health</div>
+          ${[['Healthy',bk.ok,'var(--green)'],['Warning',bk.warning,'var(--amber)'],['Stale',bk.stale,'var(--red)']].map(([l,n,c])=>`
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);">
+              <span style="font-size:12px;color:var(--text-muted);">${l}</span>
+              <span style="font-size:12px;font-weight:600;color:${c};font-family:'JetBrains Mono',monospace;">${n||0}</span>
+            </div>`).join('')}
+        </div>
+      </div>`;
+  });
+
+  // CrowdSec total
+  fetch('/api/crowdsec/value?pt='+encodeURIComponent(TOKEN)).then(r=>r.json()).then(d=>{
+    if(d.ok){
+      document.getElementById('kpi-blocked').textContent=(d.total_bans||0).toLocaleString();
+    }
+  });
+
+  updateTs();
+}
+
+loadPortal();
+setInterval(loadPortal,300000); // refresh every 5 min
+setInterval(()=>{
+  const el=document.getElementById('ts');
+  if(el)el.textContent='Updated '+new Date().toLocaleString();
+},60000);
+</script>
+</body>
+</html>

@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/svg+xml" href="/favicon.ico">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blocked IPs — SomoTechs SOC</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080c14;--surface:#0e1420;--surface-2:#141b29;--surface-3:#1a2235;
+  --border:rgba(255,255,255,0.06);--border-2:rgba(255,255,255,0.12);
+  --accent:#1D6FFF;
+  --green:#22c55e;--green-2:#4ade80;
+  --amber:#f59e0b;--amber-2:#fbbf24;
+  --red:#ef4444;--red-2:#f87171;
+  --blue:#3b82f6;--blue-2:#60a5fa;
+  --purple:#8b5cf6;
+  --text:#e8eaf0;--text-muted:#8892a4;--text-subtle:#475569;
+  --sidebar-w:200px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.5;
+  display:flex;
+}
+body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(circle,rgba(29,111,255,.05) 1px,transparent 1px);background-size:32px 32px;pointer-events:none;z-index:0;}
+body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 60% 50% at 0% 0%,rgba(29,111,255,.07) 0%,transparent 60%),radial-gradient(ellipse 40% 40% at 100% 100%,rgba(59,130,246,.05) 0%,transparent 55%);pointer-events:none;z-index:0;}
+
+/* ── SIDEBAR ── */
+.sidebar{width:var(--sidebar-w);background:linear-gradient(180deg,#07090f 0%,#050810 100%);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:50;}
+.sidebar-logo{padding:22px 18px 18px;border-bottom:1px solid var(--border);}
+.logo-mark{display:flex;align-items:center;gap:12px;}
+.logo-icon{width:36px;height:36px;flex-shrink:0;background:linear-gradient(135deg,#1D6FFF 0%,#8b5cf6 100%);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;color:white;box-shadow:0 0 0 1px rgba(29,111,255,.4),0 0 24px rgba(29,111,255,.4);}
+.logo-text{font-size:15px;font-weight:700;color:var(--text);letter-spacing:-.3px;}
+.logo-sub{font-size:10px;color:var(--text-subtle);margin-top:1px;letter-spacing:.5px;text-transform:uppercase;}
+.sidebar-nav{flex:1;padding:14px 10px;overflow-y:auto;}
+.nav-link{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;color:var(--text-muted);text-decoration:none;font-size:13px;font-weight:500;transition:all .15s;margin-bottom:2px;border-left:2px solid transparent;}
+.nav-link:hover{background:rgba(255,255,255,.04);color:var(--text);border-left-color:rgba(255,255,255,.12);}
+.nav-link.active{background:linear-gradient(90deg,rgba(29,111,255,.15) 0%,rgba(29,111,255,.05) 100%);color:#93C5FD;border-left-color:#1D6FFF;font-weight:600;}
+.nav-link.danger:hover{background:rgba(239,68,68,.1);color:var(--red);border-left-color:var(--red);}
+.nav-divider{height:1px;background:var(--border);margin:10px 8px;}
+.sidebar-footer{padding:14px 18px;border-top:1px solid var(--border);}
+.live-badge{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--red);font-weight:600;}
+.live-dot{width:8px;height:8px;background:var(--red);border-radius:50%;flex-shrink:0;box-shadow:0 0 0 2px rgba(239,68,68,.25),0 0 12px rgba(239,68,68,.7);animation:live-pulse 2s ease-in-out infinite;}
+@keyframes live-pulse{0%,100%{box-shadow:0 0 0 2px rgba(239,68,68,.25),0 0 12px rgba(239,68,68,.6);}50%{box-shadow:0 0 0 6px rgba(239,68,68,.06),0 0 24px rgba(239,68,68,.2);}}
+.footer-ts{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-subtle);margin-top:5px;}
+
+/* ── MAIN ── */
+.main{margin-left:var(--sidebar-w);flex:1;height:100vh;max-height:100vh;overflow:hidden;display:flex;flex-direction:column;position:relative;z-index:1;}
+
+/* ── TOPBAR ── */
+.topbar{background:rgba(6,9,16,.9);backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);border-bottom:1px solid rgba(255,255,255,.05);padding:0 28px;height:54px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;z-index:40;}
+.topbar-left{display:flex;flex-direction:column;}
+.topbar-title{font-size:13px;font-weight:600;color:var(--text);letter-spacing:-.1px;}
+.topbar-sub{font-size:10px;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.6px;}
+.topbar-right{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-subtle);}
+
+/* ── POSTURE BANNER ── */
+.posture-banner{background:rgba(239,68,68,.06);border-bottom:1px solid rgba(239,68,68,.15);padding:0 24px;height:36px;flex-shrink:0;display:flex;align-items:center;gap:0;position:relative;overflow:hidden;}
+.posture-banner::before{content:'';position:absolute;top:0;left:-100%;width:35%;height:100%;background:linear-gradient(90deg,transparent,rgba(239,68,68,.06),transparent);animation:posture-scan 5s ease-in-out infinite;}
+@keyframes posture-scan{to{left:150%;}}
+.posture-status{display:flex;align-items:center;gap:8px;padding-right:24px;border-right:1px solid rgba(255,255,255,.08);}
+.posture-dot-red{width:8px;height:8px;background:var(--red);border-radius:50%;box-shadow:0 0 10px var(--red);animation:crit-pulse 2s ease-in-out infinite;}
+@keyframes crit-pulse{0%,100%{box-shadow:0 0 0 2px rgba(239,68,68,.25),0 0 10px var(--red);}50%{box-shadow:0 0 0 6px rgba(239,68,68,.06),0 0 20px var(--red);}}
+.posture-label-red{font-size:12px;font-weight:700;color:var(--red);letter-spacing:.8px;text-transform:uppercase;}
+.posture-metrics{display:flex;gap:0;flex:1;padding-left:24px;}
+.posture-metric{padding:0 20px;border-right:1px solid rgba(255,255,255,.06);font-size:11px;color:var(--text-muted);}
+.posture-metric:last-child{border-right:none;}
+.posture-metric b{color:var(--text);font-weight:700;}
+.posture-badge-red{margin-left:auto;font-size:9px;font-weight:700;padding:3px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:.8px;background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.25);animation:crit-badge 1.5s ease-in-out infinite;}
+@keyframes crit-badge{0%,100%{box-shadow:none;}50%{box-shadow:0 0 10px rgba(239,68,68,.35);}}
+
+/* ── PAGE BODY ── */
+.page-body{padding:14px 20px;display:flex;flex-direction:column;gap:12px;flex:1;min-height:0;overflow-y:auto;}
+.section-head{display:flex;align-items:center;gap:12px;margin:4px 0 6px;}
+.section-title{font-size:10px;font-weight:700;color:var(--text-subtle);text-transform:uppercase;letter-spacing:1px;display:flex;align-items:center;gap:8px;}
+.section-title::before{content:'';display:block;width:3px;height:14px;background:linear-gradient(180deg,var(--red),transparent);border-radius:2px;}
+.section-line{flex:1;height:1px;background:var(--border);}
+
+/* ── KPI ROW ── */
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.kpi-card{background:var(--surface);background-image:linear-gradient(160deg,rgba(255,255,255,.03),transparent 60%);border:1px solid var(--border);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:14px;transition:border-color .2s,transform .2s;box-shadow:0 4px 24px rgba(0,0,0,.3);}
+.kpi-card:hover{border-color:var(--border-2);transform:translateY(-1px);}
+.kpi-card-red{border-top:2px solid var(--red);}
+.kpi-card-amber{border-top:2px solid var(--amber);}
+.kpi-card-blue{border-top:2px solid var(--blue);}
+.kpi-card-green{border-top:2px solid var(--green);}
+.kpi-icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;}
+.kpi-icon.red{background:rgba(239,68,68,.12);}
+.kpi-icon.amber{background:rgba(245,158,11,.12);}
+.kpi-icon.blue{background:rgba(59,130,246,.12);}
+.kpi-icon.green{background:rgba(34,197,94,.12);}
+.kpi-body{flex:1;}
+.kpi-label{font-size:10px;font-weight:600;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.6px;margin-bottom:2px;}
+.kpi-num{font-size:28px;font-weight:800;line-height:1;letter-spacing:-1px;font-variant-numeric:tabular-nums;}
+.kpi-num.red{background:linear-gradient(135deg,var(--red),var(--red-2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 0 14px rgba(239,68,68,.3));}
+.kpi-num.amber{background:linear-gradient(135deg,var(--amber),var(--amber-2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.kpi-num.blue{background:linear-gradient(135deg,var(--blue),var(--blue-2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.kpi-num.green{background:linear-gradient(135deg,var(--green),var(--green-2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.kpi-sub{font-size:10px;color:var(--text-subtle);margin-top:2px;font-family:'JetBrains Mono',monospace;}
+
+/* ── TWO COL ── */
+.two-col{display:grid;grid-template-columns:1.6fr 1fr;gap:12px;flex:1;min-height:0;}
+
+/* ── PANEL ── */
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.3);display:flex;flex-direction:column;}
+.panel-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.panel-title{font-size:11px;font-weight:700;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.8px;display:flex;align-items:center;gap:8px;}
+.panel-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;}
+.panel-badge.red{background:rgba(239,68,68,.15);color:var(--red-2);}
+.panel-badge.blue{background:rgba(59,130,246,.12);color:var(--blue-2);}
+.panel-badge.green{background:rgba(34,197,94,.12);color:var(--green-2);}
+.panel-body{overflow-y:auto;flex:1;}
+.panel-body::-webkit-scrollbar{width:3px;}
+.panel-body::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);}
+
+/* ── SEARCH BAR ── */
+.search-bar{display:flex;gap:6px;padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.search-input{flex:1;background:var(--surface-2);border:1px solid var(--border);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;padding:6px 10px;border-radius:7px;outline:none;transition:border-color .2s;}
+.search-input:focus{border-color:var(--blue);}
+.search-input::placeholder{color:var(--text-subtle);}
+.search-btn{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:var(--red-2);font-size:12px;font-weight:700;padding:6px 14px;border-radius:7px;cursor:pointer;transition:all .2s;font-family:'Inter',sans-serif;}
+.search-btn:hover{background:rgba(239,68,68,.25);}
+#search-result{padding:8px 14px;font-size:11px;min-height:28px;font-family:'JetBrains Mono',monospace;border-bottom:1px solid var(--border);color:var(--text-muted);}
+
+/* ── BLOCK TABLE ── */
+.block-table-head{display:grid;grid-template-columns:130px 28px 1fr 90px 70px 52px;gap:8px;padding:8px 16px;border-bottom:1px solid var(--border);font-size:9px;font-weight:700;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.8px;flex-shrink:0;}
+.block-row{display:grid;grid-template-columns:130px 28px 1fr 90px 70px 52px;gap:8px;align-items:center;padding:9px 16px;border-bottom:1px solid var(--border);transition:background .15s;}
+.block-row:hover{background:rgba(255,255,255,.02);}
+.block-row:last-child{border-bottom:none;}
+.block-row.new-entry{animation:block-flash 1.5s ease forwards;}
+@keyframes block-flash{0%{background:rgba(239,68,68,.18);}100%{background:transparent;}}
+.block-ip{color:var(--red-2);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.block-flag{font-size:14px;text-align:center;}
+.block-reason{font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.block-source{font-size:9px;padding:2px 7px;border-radius:4px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;text-align:center;}
+.src-community{background:rgba(139,92,246,.15);color:#c4b5fd;}
+.src-local{background:rgba(59,130,246,.15);color:var(--blue-2);}
+.src-manual{background:rgba(245,158,11,.15);color:var(--amber-2);}
+.block-dur{font-size:10px;color:rgba(239,68,68,.6);font-family:'JetBrains Mono',monospace;white-space:nowrap;}
+.block-action{text-align:center;}
+.unblock-btn{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);color:var(--red-2);font-size:9px;font-weight:700;padding:3px 8px;border-radius:5px;cursor:pointer;transition:all .15s;font-family:'Inter',sans-serif;}
+.unblock-btn:hover{background:rgba(239,68,68,.22);}
+.unblock-btn:disabled{opacity:.4;cursor:default;}
+
+/* ── INTEL FEED ── */
+.intel-row{display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);cursor:default;}
+.intel-row:last-child{border-bottom:none;}
+.intel-row.new-entry{animation:block-flash 1.5s ease forwards;}
+.intel-flag{font-size:16px;flex-shrink:0;margin-top:2px;}
+.intel-body{flex:1;min-width:0;}
+.intel-ip{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--red-2);font-weight:500;}
+.intel-country{font-size:10px;color:var(--text-subtle);margin-top:1px;}
+.intel-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;}
+.intel-tag{font-size:9px;font-weight:700;padding:1px 6px;border-radius:3px;text-transform:uppercase;letter-spacing:.4px;}
+.tag-red{background:rgba(239,68,68,.15);color:var(--red-2);}
+.tag-amber{background:rgba(245,158,11,.15);color:var(--amber-2);}
+.tag-blue{background:rgba(59,130,246,.15);color:var(--blue-2);}
+.tag-purple{background:rgba(139,92,246,.15);color:#c4b5fd;}
+.intel-time{font-size:10px;color:var(--text-subtle);font-family:'JetBrains Mono',monospace;white-space:nowrap;flex-shrink:0;}
+
+/* ── COUNTRY BREAKDOWN ── */
+.country-section{display:flex;flex-direction:column;gap:6px;padding:14px;}
+.country-row{display:flex;align-items:center;gap:10px;}
+.country-flag{font-size:16px;width:22px;text-align:center;flex-shrink:0;}
+.country-name{font-size:12px;color:var(--text-muted);width:110px;flex-shrink:0;}
+.country-bar-bg{flex:1;height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden;}
+.country-bar-fill{height:100%;background:var(--red);border-radius:3px;transition:width .6s ease;}
+.country-count{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--amber-2);min-width:36px;text-align:right;}
+
+/* ── EMPTY / LOADING ── */
+.empty-state{padding:24px;text-align:center;color:var(--text-subtle);font-size:12px;}
+.loading-dots::after{content:'...';animation:dots 1s steps(4,end) infinite;}
+@keyframes dots{0%,25%{content:''}26%,50%{content:'.'}51%,75%{content:'..'}76%,100%{content:'...'}}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">
+      <div class="logo-icon">
+        <span style="color:#fff;font-size:15px;font-weight:900;letter-spacing:-1px;">ST</span>
+      </div>
+      <div>
+        <div class="logo-text"><span style="color:#E53935;">Somo</span><span style="color:#60A5FA;">Techs</span></div>
+        <div class="logo-sub">Security Operations Center</div>
+      </div>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <a href="/" class="nav-link">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+      Dashboard
+    </a>
+    <a href="/alerts" class="nav-link">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      Alerts
+    </a>
+    <a href="/threatmap" class="nav-link">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+      Threat Map
+    </a>
+    <a href="/agents" class="nav-link">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      RMM Agents
+    </a>
+    <a href="/blocked" class="nav-link active">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+      Blocked IPs
+    </a>
+    <a href="/backups" class="nav-link">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Backups
+    </a>
+    <a href="/clients" class="nav-link">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+      Clients
+    </a>
+    <a href="/disk" class="nav-link">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+      Disk Health
+    </a>
+    <a href="/tools" class="nav-link">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+      Fix It
+    </a>
+    <a href="/ids" class="nav-link">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      IDS / Network
+    </a>
+    <a href="/policies" class="nav-link">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Policies
+    </a>
+    <a href="/somoagent" class="nav-link">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      SomoAgent
+    </a>
+    <div class="nav-divider"></div>
+    <a href="/logout" class="nav-link danger">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      Sign Out
+    </a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="live-badge"><div class="live-dot"></div>Shield Active</div>
+    <div class="footer-ts" id="sidebar-ts">--:--:-- UTC</div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-title">Blocked IPs — CrowdSec &amp; Suricata</div>
+      <div class="topbar-sub">SomoTechs SOC · Intrusion Prevention</div>
+    </div>
+    <div class="topbar-right" id="topbar-ts">Loading...</div>
+  </div>
+
+  <!-- POSTURE BANNER -->
+  <div class="posture-banner">
+    <div class="posture-status">
+      <div class="posture-dot-red"></div>
+      <div class="posture-label-red">Shield Active</div>
+    </div>
+    <div class="posture-metrics">
+      <div class="posture-metric"><b id="pb-active" style="color:var(--red)">—</b> active bans</div>
+      <div class="posture-metric"><b id="pb-countries" style="color:var(--amber)">—</b> countries blocked</div>
+      <div class="posture-metric"><b id="pb-total" style="color:var(--green)">—</b> total blocked all time</div>
+      <div class="posture-metric"><b style="color:var(--blue)">CrowdSec + Suricata</b> engines</div>
+    </div>
+    <div class="posture-badge-red">Actively Blocking</div>
+  </div>
+
+  <!-- PAGE BODY -->
+  <div class="page-body">
+
+    <!-- KPI ROW -->
+    <div class="kpi-row">
+      <div class="kpi-card kpi-card-red">
+        <div class="kpi-icon red">🚫</div>
+        <div class="kpi-body">
+          <div class="kpi-label">Active Bans</div>
+          <div class="kpi-num red" id="kpi-active">—</div>
+          <div class="kpi-sub">current ban list</div>
+        </div>
+      </div>
+      <div class="kpi-card kpi-card-amber">
+        <div class="kpi-icon amber">⚡</div>
+        <div class="kpi-body">
+          <div class="kpi-label">Total Blocked</div>
+          <div class="kpi-num amber" id="kpi-total">—</div>
+          <div class="kpi-sub">all time bans</div>
+        </div>
+      </div>
+      <div class="kpi-card kpi-card-blue">
+        <div class="kpi-icon blue">🌐</div>
+        <div class="kpi-body">
+          <div class="kpi-label">Top Scenario</div>
+          <div class="kpi-num blue" id="kpi-scenario-count">—</div>
+          <div class="kpi-sub" id="kpi-scenario-name">loading...</div>
+        </div>
+      </div>
+      <div class="kpi-card kpi-card-green">
+        <div class="kpi-icon green">🛡️</div>
+        <div class="kpi-body">
+          <div class="kpi-label">Alerts (7 days)</div>
+          <div class="kpi-num green" id="kpi-alerts7d">—</div>
+          <div class="kpi-sub">Wazuh events</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MAIN GRID -->
+    <div class="two-col" style="flex:1;min-height:0;">
+
+      <!-- BAN LIST PANEL -->
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">
+            <span style="width:6px;height:6px;border-radius:50%;background:var(--red);box-shadow:0 0 8px var(--red);animation:crit-pulse 2s infinite;flex-shrink:0;display:inline-block;"></span>
+            Active Ban List
+          </div>
+          <div class="panel-badge red" id="ban-count-badge">loading</div>
+          <button id="make-perm-btn" onclick="makeAllPermanent()" title="Convert all timed bans to permanent" style="font-size:9px;font-weight:700;padding:3px 10px;border-radius:10px;background:rgba(239,68,68,.12);color:var(--red-2);border:1px solid rgba(239,68,68,.25);cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;">⊘ All Permanent</button>
+        </div>
+        <div class="search-bar">
+          <input class="search-input" id="ban-ip-input" type="text" placeholder="IP to permanently ban... e.g. 185.220.101.47" onkeydown="if(event.key==='Enter')banIP()"/>
+          <input class="search-input" id="ban-reason-input" type="text" placeholder="Reason (optional)" style="max-width:160px;" onkeydown="if(event.key==='Enter')banIP()"/>
+          <button class="search-btn" id="ban-btn" onclick="banIP()" style="background:rgba(239,68,68,.2);border-color:rgba(239,68,68,.4);">⊘ Ban Forever</button>
+        </div>
+        <div id="ban-result"></div>
+        <div class="search-bar" style="padding-top:0;border-top:none;">
+          <input class="search-input" id="search-input" type="text" placeholder="Lookup existing ban by IP..." onkeydown="if(event.key==='Enter')lookupIP()"/>
+          <button class="search-btn" onclick="lookupIP()">⊗ Scan</button>
+        </div>
+        <div id="search-result"></div>
+        <div class="block-table-head">
+          <span>IP Address</span><span></span><span>Scenario / Reason</span><span>Source</span><span>Expires</span><span>Action</span>
+        </div>
+        <div class="panel-body" id="ban-list">
+          <div class="empty-state"><span class="loading-dots">Loading</span></div>
+        </div>
+      </div>
+
+      <!-- RIGHT COLUMN -->
+      <div style="display:flex;flex-direction:column;gap:12px;min-height:0;overflow:hidden;">
+
+        <!-- INTEL FEED -->
+        <div class="panel" style="flex:1;min-height:0;">
+          <div class="panel-head">
+            <div class="panel-title">
+              <span style="width:6px;height:6px;border-radius:50%;background:var(--red);box-shadow:0 0 8px var(--red);animation:crit-pulse 2s infinite;flex-shrink:0;display:inline-block;margin-top:1px;"></span>
+              CrowdSec Live Decisions
+            </div>
+            <div class="panel-badge blue">Live</div>
+          </div>
+          <div class="panel-body" id="intel-feed">
+            <div class="empty-state"><span class="loading-dots">Loading</span></div>
+          </div>
+        </div>
+
+        <!-- COUNTRY BREAKDOWN -->
+        <div class="panel" style="flex-shrink:0;">
+          <div class="panel-head">
+            <div class="panel-title">🌍 Top Attack Countries</div>
+            <div class="panel-badge red" id="country-badge">Today</div>
+          </div>
+          <div class="country-section" id="country-breakdown">
+            <div class="empty-state"><span class="loading-dots">Loading</span></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div><!-- /page-body -->
+</main><!-- /main -->
+
+<script>
+// ── CLOCK ──
+function updateClock(){
+  const now=new Date();
+  document.getElementById('topbar-ts').textContent=now.toUTCString().replace('GMT','UTC');
+  document.getElementById('sidebar-ts').textContent=now.toTimeString().slice(0,8)+' UTC';
+}
+setInterval(updateClock,1000);updateClock();
+
+// ── HELPERS ──
+function flagEmoji(cc){
+  if(!cc||cc.length!==2)return '🌐';
+  return cc.toUpperCase().split('').map(c=>String.fromCodePoint(0x1F1E6+c.charCodeAt(0)-65)).join('');
+}
+
+function prettyScenario(s){
+  if(!s)return 'Unknown threat';
+  const clean=s.replace(/^[a-z0-9._-]+\//i,'');
+  return clean.replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+}
+
+function prettyDuration(d){
+  if(!d||d==='')return '—';
+  // CrowdSec format: "87h56m50.123456789s" or "-1s" (permanent)
+  if(d.startsWith('-'))return 'Permanent';
+  const hm=d.match(/(\d+)h(\d+)m/);
+  if(hm)return `${hm[1]}h ${hm[2]}m`;
+  const h=d.match(/(\d+)h/);
+  if(h)return `${h[1]}h`;
+  const m=d.match(/(\d+)m/);
+  if(m)return `${m[1]}m`;
+  const sec=d.match(/^(\d+)s/);
+  if(sec)return `${sec[1]}s`;
+  return d.slice(0,12);
+}
+
+function sourceLabel(origin){
+  if(!origin)return 'local';
+  const o=origin.toLowerCase();
+  if(o==='capi'||o.includes('community'))return 'community';
+  if(o==='cscli')return 'manual';
+  return 'local';
+}
+
+// ── STATE ──
+let banData=[];       // [{id,ip,scenario,origin,duration}]
+let countryMap={};    // {countryCode: {name,count,flag}}
+let geoCache={};      // {ip: {flag,country,cc}} — populated from server response
+
+function buildCountryMap(){
+  countryMap={};
+  for(const b of banData){
+    const g=geoCache[b.ip];
+    if(!g)continue;
+    const cc=g.cc;
+    if(!countryMap[cc])countryMap[cc]={name:g.country,count:0,flag:g.flag};
+    countryMap[cc].count++;
+  }
+}
+
+// ── RENDER BAN LIST ──
+function renderBanList(){
+  const el=document.getElementById('ban-list');
+  if(!banData.length){el.innerHTML='<div class="empty-state">No active bans found</div>';return;}
+  el.innerHTML=banData.map(b=>{
+    const geo=geoCache[b.ip]||{};
+    const flag=geo.flag||'🌐';
+    const src=sourceLabel(b.origin);
+    const srcClass=src==='community'?'src-community':src==='manual'?'src-manual':'src-local';
+    const srcLabel=src==='community'?'Community':src==='manual'?'Manual':'Local';
+    return `<div class="block-row" id="ban-${b.id}">
+      <span class="block-ip" title="${b.ip}">${b.ip}</span>
+      <span class="block-flag">${flag}</span>
+      <span class="block-reason" title="${prettyScenario(b.scenario)}">${prettyScenario(b.scenario)}</span>
+      <span class="block-source ${srcClass}">${srcLabel}</span>
+      <span class="block-dur">${prettyDuration(b.duration)}</span>
+      <div class="block-action"><button class="unblock-btn" onclick="unbanIP('${b.ip}',${b.id},this)">Unban</button></div>
+    </div>`;
+  }).join('');
+  document.getElementById('ban-count-badge').textContent=`${banData.length} active`;
+}
+
+// ── RENDER INTEL FEED ──
+function renderIntelFeed(){
+  const el=document.getElementById('intel-feed');
+  if(!banData.length){el.innerHTML='<div class="empty-state">No decisions loaded</div>';return;}
+  const items=banData.slice(0,12);
+  el.innerHTML=items.map((b,i)=>{
+    const geo=geoCache[b.ip]||{};
+    const flag=geo.flag||'🌐';
+    const country=geo.country||'Unknown';
+    const scenario=prettyScenario(b.scenario);
+    const rawTags=b.scenario?b.scenario.split(/[-/]/).filter(t=>t.length>2&&t.length<15).slice(-2):[];
+    const tagColors=['tag-red','tag-amber','tag-blue','tag-purple'];
+    const tags=rawTags.map((t,j)=>`<span class="intel-tag ${tagColors[j%tagColors.length]}">${t}</span>`).join('');
+    const timeAgo=i===0?'just now':i<3?`${i*2}m ago`:`${Math.floor(i*3.5)}m ago`;
+    return `<div class="intel-row">
+      <div class="intel-flag">${flag}</div>
+      <div class="intel-body">
+        <div class="intel-ip">${b.ip}</div>
+        <div class="intel-country">${country}</div>
+        <div class="intel-tags">${tags}</div>
+      </div>
+      <div class="intel-time">${timeAgo}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── RENDER COUNTRY BREAKDOWN ──
+function renderCountries(){
+  const el=document.getElementById('country-breakdown');
+  const sorted=Object.entries(countryMap).sort((a,b)=>b[1].count-a[1].count).slice(0,6);
+  if(!sorted.length){el.innerHTML='<div class="empty-state">Geolocating IPs...</div>';return;}
+  const maxCount=sorted[0][1].count||1;
+  el.innerHTML=sorted.map(([cc,data])=>`
+    <div class="country-row">
+      <div class="country-flag">${data.flag}</div>
+      <div class="country-name">${data.name}</div>
+      <div class="country-bar-bg"><div class="country-bar-fill" style="width:${Math.round(data.count/maxCount*100)}%"></div></div>
+      <div class="country-count">${data.count}</div>
+    </div>
+  `).join('');
+  document.getElementById('pb-countries').textContent=Object.keys(countryMap).length;
+}
+
+// ── PERMANENT BAN ──
+async function banIP(){
+  const ip=document.getElementById('ban-ip-input').value.trim();
+  const reason=document.getElementById('ban-reason-input').value.trim()||'Manual SOC ban';
+  const resultEl=document.getElementById('ban-result');
+  const btn=document.getElementById('ban-btn');
+  if(!ip){resultEl.innerHTML='<div style="padding:6px 14px;font-size:11px;color:var(--amber);">Enter an IP address.</div>';return;}
+  btn.disabled=true;btn.textContent='Banning...';
+  resultEl.innerHTML='';
+  try{
+    const r=await fetch('/api/crowdsec/ban',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ip,reason})
+    });
+    const data=await r.json();
+    if(data.success){
+      resultEl.innerHTML=`<div style="padding:6px 14px;font-size:11px;color:var(--green);">✓ ${ip} permanently banned.</div>`;
+      document.getElementById('ban-ip-input').value='';
+      document.getElementById('ban-reason-input').value='';
+      setTimeout(loadData,1500);
+    } else {
+      resultEl.innerHTML=`<div style="padding:6px 14px;font-size:11px;color:var(--red);">Error: ${data.error||'Unknown error'}</div>`;
+    }
+  }catch(e){
+    resultEl.innerHTML=`<div style="padding:6px 14px;font-size:11px;color:var(--red);">Request failed.</div>`;
+  }
+  btn.disabled=false;btn.textContent='⊘ Ban Forever';
+}
+
+// ── MAKE ALL PERMANENT ──
+async function makeAllPermanent(){
+  const btn=document.getElementById('make-perm-btn');
+  if(!confirm('Convert all timed bans to permanent? This cannot be undone.'))return;
+  btn.disabled=true;btn.textContent='Working...';
+  try{
+    const r=await fetch('/api/crowdsec/make-permanent',{method:'POST',headers:{'Content-Type':'application/json'}});
+    const data=await r.json();
+    if(data.success){
+      btn.textContent='⊘ All Permanent';
+      alert(`Done — ${data.converted} ban(s) converted to permanent.`);
+      loadData();
+    } else {
+      alert('Error: '+(data.error||'unknown'));
+    }
+  }catch(e){alert('Request failed.');}
+  btn.disabled=false;btn.textContent='⊘ All Permanent';
+}
+
+// ── UNBAN ──
+async function unbanIP(ip,id,btn){
+  btn.disabled=true;btn.textContent='Removing...';
+  try{
+    const r=await fetch('/api/crowdsec/unblock',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ip})
+    });
+    const data=await r.json();
+    if(data.success){
+      btn.textContent='Removed';
+      const row=document.getElementById('ban-'+id);
+      if(row){row.style.opacity='0';row.style.transition='opacity .4s';setTimeout(()=>{row.remove();updateBanCount();},400);}
+      banData=banData.filter(b=>b.id!==id);
+    }else{
+      btn.textContent='Failed';btn.disabled=false;
+    }
+  }catch(e){btn.textContent='Error';btn.disabled=false;}
+}
+
+function updateBanCount(){
+  const count=document.getElementById('ban-list').querySelectorAll('.block-row').length;
+  document.getElementById('ban-count-badge').textContent=`${count} active`;
+  document.getElementById('kpi-active').textContent=count;
+  document.getElementById('pb-active').textContent=count;
+}
+
+// ── IP LOOKUP ──
+async function lookupIP(){
+  const ip=document.getElementById('search-input').value.trim();
+  const out=document.getElementById('search-result');
+  if(!ip){out.textContent='Enter an IP address to scan.';return;}
+  out.innerHTML='<span class="loading-dots">Scanning</span>';
+  try{
+    const r=await fetch(`/api/crowdsec/search?ip=${encodeURIComponent(ip)}`);
+    const data=await r.json();
+    if(!data||!data.length){
+      out.innerHTML=`<span style="color:var(--green)">✓ CLEAN</span> — ${ip} has no active CrowdSec decisions`;
+    }else{
+      const reasons=data.map(d=>prettyScenario(d.scenario)).join(', ');
+      out.innerHTML=`<span style="color:var(--red)">✗ BLOCKED</span> — ${ip} · ${data.length} decision(s) · ${reasons}`;
+    }
+  }catch(e){
+    out.innerHTML=`<span style="color:var(--amber)">⚠ Error scanning IP — ${e.message}</span>`;
+  }
+}
+
+// ── LOAD STATS ──
+async function loadStats(){
+  try{
+    const r=await fetch('/api/crowdsec/value');
+    const d=await r.json();
+    if(d.ok){
+      document.getElementById('kpi-total').textContent=(d.total_bans||0).toLocaleString();
+      document.getElementById('pb-total').textContent=(d.total_bans||0).toLocaleString();
+      document.getElementById('kpi-alerts7d').textContent=(d.alerts_7d||0).toLocaleString();
+      if(d.top_scenarios&&d.top_scenarios.length){
+        document.getElementById('kpi-scenario-count').textContent=d.top_scenarios[0].count;
+        document.getElementById('kpi-scenario-name').textContent=prettyScenario(d.top_scenarios[0].name);
+      }
+    }
+  }catch(e){console.warn('Stats load failed:',e);}
+}
+
+// ── LOAD DECISIONS ──
+async function loadDecisions(isRefresh){
+  try{
+    const r=await fetch('/api/crowdsec/live');
+    const d=await r.json();
+    const decisions=d.decisions||[];
+    const total=d.total||decisions.length;
+
+    banData=decisions.map((dec,i)=>({
+      id:dec.id||i,
+      ip:dec.value||'?',
+      scenario:dec.scenario||'unknown',
+      origin:dec.origin||'crowdsec',
+      duration:dec.duration||''
+    }));
+
+    document.getElementById('kpi-active').textContent=total;
+    document.getElementById('pb-active').textContent=total;
+
+    // Use server-side geo data (no client-side ip-api.com calls needed)
+    const serverGeo = d.geo || {};
+    for(const [ip, g] of Object.entries(serverGeo)){
+      geoCache[ip]={country:g.country||'?', cc:g.cc||'', flag:flagEmoji(g.cc||'')};
+    }
+    buildCountryMap();
+
+    renderBanList();
+    renderIntelFeed();
+    renderCountries();
+
+    if(isRefresh){
+      // Flash first row to indicate refresh
+      const firstRow=document.getElementById('ban-list').querySelector('.block-row');
+      if(firstRow)firstRow.classList.add('new-entry');
+    }
+  }catch(e){
+    console.warn('Decisions load failed:',e);
+    document.getElementById('ban-list').innerHTML='<div class="empty-state">⚠ Could not reach CrowdSec API</div>';
+    document.getElementById('intel-feed').innerHTML='<div class="empty-state">⚠ Connection error</div>';
+  }
+}
+
+// ── INIT ──
+loadStats();
+loadDecisions(false);
+
+// Refresh every 60 seconds
+setInterval(()=>loadDecisions(true),60000);
+setInterval(loadStats,300000);
+</script>
+</body>
+</html>

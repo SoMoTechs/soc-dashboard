@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/svg+xml" href="/favicon.ico">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SomoTechs Secure Terminal</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;background:#000;overflow:hidden;}
+body{
+  font-family:'Courier New',Courier,monospace;
+  color:#00ff41;
+  font-size:14px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+/* scanlines */
+body::before{
+  content:'';
+  position:fixed;inset:0;
+  background:repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.07) 2px,
+    rgba(0,0,0,0.07) 4px
+  );
+  pointer-events:none;z-index:999;
+}
+/* screen flicker */
+@keyframes flicker{
+  0%,100%{opacity:1;}
+  92%{opacity:1;}
+  93%{opacity:.85;}
+  94%{opacity:1;}
+  97%{opacity:.9;}
+  98%{opacity:1;}
+}
+#screen{
+  width:min(780px,98vw);
+  height:min(520px,95vh);
+  background:rgba(0,10,0,0.97);
+  border:1px solid #00ff4133;
+  border-radius:4px;
+  box-shadow:0 0 60px #00ff4122,inset 0 0 40px #00000066;
+  display:flex;flex-direction:column;
+  animation:flicker 8s infinite;
+  overflow:hidden;
+}
+#titlebar{
+  background:#00ff4111;
+  border-bottom:1px solid #00ff4133;
+  padding:4px 12px;
+  font-size:11px;
+  color:#00ff4188;
+  display:flex;justify-content:space-between;
+  letter-spacing:.5px;
+}
+#output{
+  flex:1;
+  padding:14px 18px 0;
+  overflow-y:auto;
+  line-height:1.6;
+  scroll-behavior:smooth;
+}
+#output::-webkit-scrollbar{width:3px;}
+#output::-webkit-scrollbar-thumb{background:#00ff4133;}
+.line{white-space:pre-wrap;word-break:break-all;}
+.dim{color:#00ff4166;}
+.bright{color:#00ff41;font-weight:bold;}
+.warn{color:#ffcc00;}
+.error{color:#ff3333;}
+.success{color:#00ffff;}
+.bless{color:#ff69b4;font-weight:bold;}
+.input-row{
+  display:flex;
+  padding:8px 18px 14px;
+  align-items:center;
+  border-top:1px solid #00ff4111;
+  gap:6px;
+  flex-shrink:0;
+}
+#prompt-label{color:#00ff4188;white-space:nowrap;}
+#user-input{
+  flex:1;
+  background:transparent;
+  border:none;
+  outline:none;
+  color:#00ff41;
+  font-family:'Courier New',Courier,monospace;
+  font-size:14px;
+  caret-color:#00ff41;
+}
+#cursor-blink{
+  display:inline-block;
+  width:8px;height:14px;
+  background:#00ff41;
+  animation:blink .75s step-start infinite;
+  vertical-align:text-bottom;
+  margin-left:1px;
+}
+@keyframes blink{50%{opacity:0;}}
+
+/* big ban screen */
+#ban-overlay{
+  display:none;
+  position:absolute;inset:0;
+  background:#000;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  padding:30px;
+  z-index:10;
+}
+#ban-overlay.show{display:flex;}
+#ban-ascii{
+  color:#ff3333;
+  font-size:clamp(10px,1.6vw,14px);
+  line-height:1.2;
+  white-space:pre;
+  margin-bottom:20px;
+  animation:pulse-red 1.5s ease-in-out infinite;
+}
+@keyframes pulse-red{0%,100%{text-shadow:0 0 8px #ff3333;}50%{text-shadow:0 0 30px #ff0000,0 0 60px #ff000055;}}
+#ban-msg{color:#ffcc00;font-size:13px;line-height:1.9;margin-bottom:20px;}
+#ban-bless{color:#ff69b4;font-size:15px;font-weight:bold;letter-spacing:1px;margin-top:8px;}
+#ban-ip{color:#ff333388;font-size:11px;margin-top:12px;}
+</style>
+</head>
+<body>
+
+<div id="screen" style="position:relative;">
+
+  <!-- BAN OVERLAY (shown after game over) -->
+  <div id="ban-overlay">
+    <pre id="ban-ascii">
+ ██████╗  █████╗ ███╗   ██╗███╗   ██╗███████╗██████╗
+ ██╔══██╗██╔══██╗████╗  ██║████╗  ██║██╔════╝██╔══██╗
+ ██████╔╝███████║██╔██╗ ██║██╔██╗ ██║█████╗  ██║  ██║
+ ██╔══██╗██╔══██║██║╚██╗██║██║╚██╗██║██╔══╝  ██║  ██║
+ ██████╔╝██║  ██║██║ ╚████║██║ ╚████║███████╗██████╔╝
+ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝  ╚═══╝╚══════╝╚═════╝ </pre>
+    <div id="ban-msg"></div>
+    <div id="ban-bless"></div>
+    <div id="ban-ip"></div>
+  </div>
+
+  <div id="titlebar">
+    <span>SomoTechs Secure Shell v4.7.1 — PROTECTED SYSTEM</span>
+    <span id="clock"></span>
+  </div>
+
+  <div id="output"></div>
+
+  <div class="input-row">
+    <span id="prompt-label">$&gt;&nbsp;</span>
+    <input id="user-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" maxlength="64">
+  </div>
+
+</div>
+
+<script>
+const out      = document.getElementById('output');
+const input    = document.getElementById('user-input');
+const prompt   = document.getElementById('prompt-label');
+const overlay  = document.getElementById('ban-overlay');
+const clockEl  = document.getElementById('clock');
+
+// ── clock ──────────────────────────────────────────────────────────────────
+function tick(){clockEl.textContent=new Date().toLocaleTimeString('en-US',{hour12:false});}
+tick(); setInterval(tick,1000);
+
+// ── output helpers ─────────────────────────────────────────────────────────
+function line(text='', cls=''){
+  const d=document.createElement('div');
+  d.className='line'+(cls?' '+cls:'');
+  d.textContent=text;
+  out.appendChild(d);
+  out.scrollTop=out.scrollHeight;
+  return d;
+}
+
+let typeQueue=Promise.resolve();
+function type(text, cls='', delayMs=18){
+  typeQueue=typeQueue.then(()=>new Promise(resolve=>{
+    input.disabled=true;
+    const d=line('',cls);
+    let i=0;
+    const iv=setInterval(()=>{
+      d.textContent+=text[i++];
+      out.scrollTop=out.scrollHeight;
+      if(i>=text.length){clearInterval(iv);resolve();}
+    },delayMs);
+  }));
+  return typeQueue;
+}
+function pause(ms){
+  typeQueue=typeQueue.then(()=>new Promise(r=>setTimeout(r,ms)));
+  return typeQueue;
+}
+function enable(){
+  typeQueue=typeQueue.then(()=>{input.disabled=false;input.focus();});
+  return typeQueue;
+}
+
+// ── state machine ──────────────────────────────────────────────────────────
+// stages: 'boot' → 'username' → 'password' → check → loop or 'banned'
+let stage = 'boot';
+let attempts = 0;
+const MAX = 3;
+let username = '';
+
+const badUsers  = ['admin','root','administrator','user','test','guest','oracle','postgres','pi','ubuntu'];
+const badPassHints = [
+  'Nice try. Did you really think that would work?',
+  "Hmm. Let me check... nope. Still wrong.",
+  "Password strength: PATHETIC. Just stop.",
+  "That password is as weak as your hacking skills.",
+  "Our 7-year-old intern could do better.",
+];
+const sysResponses = [
+  ['ALERT','Authentication failure detected. Your activity has been logged.'],
+  ['WARNING','Intrusion attempt recorded. Notifying security team.'],
+  ['CRITICAL','Automated threat response initiated. This is your last chance.'],
+];
+
+// ── boot sequence ──────────────────────────────────────────────────────────
+function boot(){
+  input.disabled=true;
+  type('SomoTechs Secure Infrastructure Terminal','dim',6);
+  type('Copyright (C) 2024-2026 SomoTechs LLC. All rights reserved.','dim',6);
+  type('Unauthorized access is a federal offense under 18 U.S.C. § 1030.','dim',6);
+  type('');
+  type('Initializing secure channel...','dim',20);
+  pause(600);
+  type('[  OK  ] Loaded encryption module (AES-256-GCM)','dim',8);
+  type('[  OK  ] Loaded integrity verification module','dim',8);
+  type('[  OK  ] Connected to SomoTechs threat intelligence feed','dim',8);
+  type('[  OK  ] IP reputation check: ','dim',8);
+  pause(500);
+
+  typeQueue=typeQueue.then(()=>new Promise(resolve=>{
+    const d=line('[  !! ] ','warn');
+    const flags=['SUSPICIOUS','KNOWN SCANNER','FLAGGED','HIGH RISK','THREAT ACTOR'];
+    const label=flags[Math.floor(Math.random()*flags.length)];
+    setTimeout(()=>{d.textContent+='[ '+label+' ]';out.scrollTop=out.scrollHeight;resolve();},400);
+  }));
+
+  pause(300);
+  type('');
+  type('WARNING: This system is monitored 24/7. All sessions are recorded.','warn',10);
+  type('');
+  type('SomoTechs Secure Shell ready.','bright');
+  type('');
+  typeQueue.then(()=>{stage='username';promptUsername();});
+}
+
+function promptUsername(){
+  prompt.textContent='login: ';
+  input.type='text';
+  input.disabled=false;
+  input.focus();
+}
+
+function promptPassword(){
+  prompt.textContent='password: ';
+  input.type='password';
+  input.disabled=false;
+  input.focus();
+}
+
+// ── input handler ──────────────────────────────────────────────────────────
+input.addEventListener('keydown',e=>{
+  if(e.key!=='Enter'||input.disabled)return;
+  const val=input.value.trim();
+  input.value='';
+
+  if(stage==='username'){
+    username=val||'(empty)';
+    if(!val){
+      line('login: ','dim');
+      return;
+    }
+    line('login: '+val,'dim');
+    stage='password';
+    promptPassword();
+
+  }else if(stage==='password'){
+    line('password: ********','dim');
+    stage='checking';
+    input.disabled=true;
+    checkLogin(username,val);
+  }
+});
+
+// ── login check ────────────────────────────────────────────────────────────
+function checkLogin(user,pass){
+  attempts++;
+  const remaining=MAX-attempts;
+
+  type('');
+  type('Authenticating...','dim',15);
+  pause(800);
+  typeQueue.then(()=>{
+    const [lvl,msg]=sysResponses[attempts-1]||sysResponses[sysResponses.length-1];
+    const cls=lvl==='ALERT'?'warn':lvl==='WARNING'?'warn':'error';
+    line(`[${lvl}] ${msg}`,cls);
+    out.scrollTop=out.scrollHeight;
+  });
+  pause(400);
+
+  const hint=badPassHints[Math.min(attempts-1,badPassHints.length-1)];
+  type(`>>> ACCESS DENIED <<<`,'error',12);
+  type(`>>> ${hint}`,'warn',14);
+
+  if(remaining<=0){
+    // Game over
+    pause(600);
+    type('');
+    type('MAXIMUM AUTHENTICATION FAILURES REACHED.','error',10);
+    type('Initiating automated ban procedure...','error',10);
+    pause(500);
+    type('[████████████████████] BAN APPLIED','error',8);
+    pause(400);
+    type('');
+    type(`Your session has been terminated.`,'error',12);
+    typeQueue.then(()=>showBan(user));
+  }else{
+    type('');
+    type(`${remaining} attempt${remaining===1?'':'s'} remaining.`,'warn',14);
+    type('');
+    typeQueue.then(()=>{stage='username';promptUsername();});
+  }
+}
+
+// ── ban screen ─────────────────────────────────────────────────────────────
+function showBan(user){
+  input.disabled=true;
+  prompt.textContent='';
+
+  // build ban message
+  document.getElementById('ban-msg').innerHTML=
+    `<span style="color:#ff6666">User <b style="color:#fff">${escHtml(user)}</b> has been permanently banned.</span>\n\n` +
+    `<span style="color:#ffcc00">Your IP address has been logged, flagged, and reported\n` +
+    `to our security team and upstream threat intelligence feeds.</span>\n\n` +
+    `<span style="color:#aaa">Further attempts will result in escalation to your ISP\n` +
+    `and relevant law enforcement authorities.</span>`;
+
+  document.getElementById('ban-bless').textContent =
+    '✝  Have a blessed day. You are going to need it.  ✝';
+
+  document.getElementById('ban-ip').textContent =
+    'Session ID: '+Math.random().toString(36).slice(2).toUpperCase()+' | '+new Date().toISOString();
+
+  overlay.classList.add('show');
+  // dramatic count-down pulse on ascii
+  let pulses=0;
+  const piv=setInterval(()=>{
+    document.getElementById('ban-ascii').style.color=pulses%2===0?'#ff0000':'#ff6666';
+    if(++pulses>8)clearInterval(piv);
+  },120);
+}
+
+function escHtml(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── focus trap ─────────────────────────────────────────────────────────────
+document.addEventListener('click',()=>{if(!input.disabled)input.focus();});
+
+// ── start ──────────────────────────────────────────────────────────────────
+boot();
+</script>
+</body>
+</html>

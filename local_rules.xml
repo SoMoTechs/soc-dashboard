@@ -1,0 +1,580 @@
+<!-- SomTechs SOC — local_rules.xml
+     Noise reduction + GCF router syslog rules
+     Push via: POST /rules/files/local_rules.xml
+-->
+<group name="local,somtechs">
+
+  <!-- ══════════════════════════════════════════════════════
+       NOISE REDUCTION — suppress high-volume low-value rules
+       ══════════════════════════════════════════════════════ -->
+
+  <!-- Rule 86601: Suricata "Ethertype unknown" — 441k/day, no value -->
+  <rule id="100001" level="0">
+    <if_sid>86601</if_sid>
+    <description>Suppress: Suricata Ethertype unknown (noise)</description>
+  </rule>
+
+  <!-- Rule 60642: Windows Software Protection service scheduled — routine -->
+  <rule id="100002" level="0">
+    <if_sid>60642</if_sid>
+    <description>Suppress: Windows Software Protection scheduled (noise)</description>
+  </rule>
+
+  <!-- Rule 60106: Windows logon success — too many, keep only if outside hours -->
+  <!-- Lower from level 3 to 1 so it doesn't feed alert counts -->
+  <rule id="100003" level="1">
+    <if_sid>60106</if_sid>
+    <description>Windows logon success (demoted)</description>
+  </rule>
+
+  <!-- Rule 60608: Windows Summary of report signatures — not actionable -->
+  <rule id="100004" level="0">
+    <if_sid>60608</if_sid>
+    <description>Suppress: Windows report signature summary (noise)</description>
+  </rule>
+
+  <!-- Rule 5762: sshd connection reset — mostly scanners, keep at 2 -->
+  <rule id="100005" level="2">
+    <if_sid>5762</if_sid>
+    <description>sshd: connection reset (demoted)</description>
+  </rule>
+
+  <!-- Rule 92031: Discovery activity — demote generic discovery to 3 -->
+  <!-- Keep it visible but not alarming unless combined -->
+  <rule id="100006" level="3">
+    <if_sid>92031</if_sid>
+    <description>Discovery activity (demoted, see 100050 for chained alert)</description>
+  </rule>
+
+  <!-- Rule 19007/19008: CIS benchmark informational — drop to 1 -->
+  <rule id="100007" level="1">
+    <if_sid>19007</if_sid>
+    <description>CIS benchmark check (informational, demoted)</description>
+  </rule>
+  <rule id="100008" level="1">
+    <if_sid>19008</if_sid>
+    <description>CIS benchmark check (informational, demoted)</description>
+  </rule>
+
+  <!-- Rule 750/594: FIM registry checksum — only alert on real changes, not scans -->
+  <rule id="100009" level="3">
+    <if_sid>750</if_sid>
+    <match>C:\\Windows\\System32</match>
+    <description>FIM: System32 registry value changed (demoted)</description>
+  </rule>
+
+
+  <!-- ══════════════════════════════════════════════════════
+       KEEP IMPORTANT — re-elevate or chain rules we DO want
+       ══════════════════════════════════════════════════════ -->
+
+  <!-- Brute force on SSH still important — keep 5712 at 10 but add GCF context -->
+  <rule id="100010" level="10" frequency="8" timeframe="120">
+    <if_matched_sid>5710</if_matched_sid>
+    <same_source_ip />
+    <description>SSH brute force: non-existent user (GCF threshold)</description>
+    <group>authentication_failures,pci_dss_11.4,gdpr_IV_35.7.d</group>
+  </rule>
+
+  <!-- PAM brute force chain -->
+  <rule id="100011" level="10" frequency="6" timeframe="120">
+    <if_matched_sid>5503</if_matched_sid>
+    <same_source_ip />
+    <description>PAM: Repeated login failures — possible brute force</description>
+    <group>authentication_failures</group>
+  </rule>
+
+  <!-- Windows app error — only alert if from a security-relevant source -->
+  <rule id="100012" level="6">
+    <if_sid>60602</if_sid>
+    <match>WinDefend|Windows Defender|Microsoft-Windows-Security</match>
+    <description>Windows security service application error</description>
+    <group>windows,application_error</group>
+  </rule>
+  <!-- Suppress generic app errors -->
+  <rule id="100013" level="0">
+    <if_sid>60602</if_sid>
+    <description>Suppress: Generic Windows application error (noise)</description>
+  </rule>
+
+  <!-- Mimikatz / credential theft — bump to 13 -->
+  <rule id="100014" level="13">
+    <if_sid>92052</if_sid>
+    <match>lsass|winlogon|csrss</match>
+    <description>Suspicious process spawned from credential process — possible Mimikatz</description>
+    <group>attack,credential_access,T1003</group>
+  </rule>
+
+  <!-- Logon after hours (outside 07:00-20:00) — flag as medium -->
+  <rule id="100015" level="7">
+    <if_sid>60106</if_sid>
+    <time>20:00 - 07:00</time>
+    <description>Windows logon success outside business hours</description>
+    <group>authentication_success,policy_violation</group>
+  </rule>
+
+  <!-- Multiple privileged operation failures in short window -->
+  <rule id="100016" level="9" frequency="10" timeframe="60">
+    <if_matched_sid>60107</if_matched_sid>
+    <same_user />
+    <description>Repeated privileged operation failures — possible privilege escalation attempt</description>
+    <group>windows,privilege_escalation,T1068</group>
+  </rule>
+  <!-- Single privileged op failure — demote to 2 -->
+  <rule id="100017" level="2">
+    <if_sid>60107</if_sid>
+    <description>Single privileged operation failure (demoted)</description>
+  </rule>
+
+
+  <!-- ══════════════════════════════════════════════════════
+       GCF TP-LINK OMADA SYSLOG RULES
+       Decoder: omada, omada-eap-hostapd (see local_decoder.xml)
+       Syslog source: Omada Controller + EAP APs → UDP 514
+       ══════════════════════════════════════════════════════ -->
+
+  <!-- Base: any omada syslog event -->
+  <rule id="100100" level="0">
+    <decoded_as>omada</decoded_as>
+    <description>TP-Link Omada syslog event</description>
+    <group>omada,gcf</group>
+  </rule>
+
+  <!-- ── WiFi client events ── -->
+  <rule id="100101" level="2">
+    <decoded_as>omada-wlan-connect</decoded_as>
+    <description>Omada GCF: WiFi client connected</description>
+    <group>wireless,authentication_success,omada,gcf</group>
+  </rule>
+
+  <rule id="100102" level="3">
+    <decoded_as>omada-wlan-disconnect</decoded_as>
+    <description>Omada GCF: WiFi client disconnected</description>
+    <group>wireless,omada,gcf</group>
+  </rule>
+
+  <!-- WiFi auth failures -->
+  <rule id="100103" level="5">
+    <decoded_as>omada-wlan-authfail</decoded_as>
+    <description>Omada GCF: WiFi authentication failure</description>
+    <group>wireless,authentication_failures,omada,gcf</group>
+  </rule>
+
+  <!-- Repeated WiFi auth failures from same MAC — rogue device / attack -->
+  <rule id="100104" level="9" frequency="5" timeframe="120">
+    <if_matched_sid>100103</if_matched_sid>
+    <same_field>srcmac</same_field>
+    <description>Omada GCF: repeated WiFi auth failures — possible rogue device or password attack</description>
+    <group>wireless,authentication_failures,attack,omada,gcf,T1110</group>
+  </rule>
+
+  <!-- EAP AP hostapd: client associated (direct AP syslog) -->
+  <rule id="100105" level="2">
+    <decoded_as>omada-eap-assoc</decoded_as>
+    <description>Omada EAP: WiFi client associated (AP direct log)</description>
+    <group>wireless,authentication_success,omada,gcf</group>
+  </rule>
+
+  <rule id="100106" level="3">
+    <decoded_as>omada-eap-deauth</decoded_as>
+    <description>Omada EAP: WiFi client deauthenticated (AP direct log)</description>
+    <group>wireless,omada,gcf</group>
+  </rule>
+
+  <!-- ── Firewall / ACL events ── -->
+  <rule id="100107" level="5">
+    <decoded_as>omada-firewall</decoded_as>
+    <description>Omada GCF: firewall rule matched — traffic blocked</description>
+    <group>firewall,blocked,omada,gcf</group>
+  </rule>
+
+  <!-- Many blocks from same IP = port scan / brute force -->
+  <rule id="100108" level="9" frequency="20" timeframe="60">
+    <if_matched_sid>100107</if_matched_sid>
+    <same_source_ip />
+    <description>Omada GCF: port scan or brute force — repeated blocks from same IP</description>
+    <group>firewall,scan,omada,gcf,pci_dss_11.4,T1046</group>
+  </rule>
+
+  <!-- Many blocks to same destination = targeted attack -->
+  <rule id="100109" level="8" frequency="15" timeframe="60">
+    <if_matched_sid>100107</if_matched_sid>
+    <description>Omada GCF: multiple firewall blocks — possible targeted attack</description>
+    <group>firewall,attack,omada,gcf</group>
+  </rule>
+
+  <!-- ── Attack detection (built-in Omada IDS/IPS alerts) ── -->
+  <rule id="100110" level="10">
+    <decoded_as>omada-attack</decoded_as>
+    <match>SYN Flood|SYN flood|syn flood</match>
+    <description>Omada GCF: SYN flood attack detected</description>
+    <group>attack,dos,omada,gcf,T1498</group>
+  </rule>
+
+  <rule id="100111" level="10">
+    <decoded_as>omada-attack</decoded_as>
+    <match>ARP.*[Ss]poof|ARP.*[Aa]ttack|ARP.*[Pp]oison</match>
+    <description>Omada GCF: ARP spoofing/poisoning attack detected</description>
+    <group>attack,arp_spoofing,omada,gcf,T1557</group>
+  </rule>
+
+  <rule id="100112" level="10">
+    <decoded_as>omada-attack</decoded_as>
+    <match>Rogue AP|rogue AP|Rogue Access Point|Evil Twin</match>
+    <description>Omada GCF: Rogue AP / Evil Twin detected</description>
+    <group>attack,wireless,rogue_ap,omada,gcf,T1465</group>
+  </rule>
+
+  <rule id="100113" level="9">
+    <decoded_as>omada-attack</decoded_as>
+    <match>port scan|Port Scan|portscan|ICMP flood|Ping flood|UDP flood</match>
+    <description>Omada GCF: network attack detected by Omada IDS</description>
+    <group>attack,scan,omada,gcf</group>
+  </rule>
+
+  <!-- ── WAN / Gateway events ── -->
+  <rule id="100114" level="7">
+    <decoded_as>omada-wan</decoded_as>
+    <match>disconnect|down|lost|failover|fail-over|switch.*WAN</match>
+    <description>Omada GCF: WAN link down or failover triggered</description>
+    <group>availability,wan,omada,gcf</group>
+  </rule>
+
+  <rule id="100115" level="4">
+    <decoded_as>omada-wan</decoded_as>
+    <match>connect|up|restored|recovered|WAN.*online</match>
+    <description>Omada GCF: WAN link restored</description>
+    <group>availability,wan,omada,gcf</group>
+  </rule>
+
+  <!-- ── VPN events ── -->
+  <rule id="100116" level="4">
+    <decoded_as>omada-vpn</decoded_as>
+    <match>connect|established|ESTABLISHED|up</match>
+    <description>Omada GCF: VPN tunnel/client connected</description>
+    <group>vpn,authentication_success,omada,gcf</group>
+  </rule>
+
+  <rule id="100117" level="7">
+    <decoded_as>omada-vpn</decoded_as>
+    <match>fail|FAIL|error|ERROR|reject|timeout|AUTH</match>
+    <description>Omada GCF: VPN connection failure</description>
+    <group>vpn,authentication_failures,omada,gcf</group>
+  </rule>
+
+  <!-- Repeated VPN failures = brute force -->
+  <rule id="100118" level="10" frequency="5" timeframe="120">
+    <if_matched_sid>100117</if_matched_sid>
+    <same_source_ip />
+    <description>Omada GCF: repeated VPN failures — possible brute force</description>
+    <group>vpn,authentication_failures,attack,omada,gcf,T1110</group>
+  </rule>
+
+  <!-- ── DHCP events ── -->
+  <rule id="100119" level="2">
+    <decoded_as>omada-dhcp</decoded_as>
+    <description>Omada GCF: DHCP lease assigned</description>
+    <group>dhcp,omada,gcf</group>
+  </rule>
+
+  <!-- DHCP exhaustion / starvation -->
+  <rule id="100120" level="9" frequency="50" timeframe="60">
+    <if_matched_sid>100119</if_matched_sid>
+    <description>Omada GCF: DHCP pool exhaustion — possible DHCP starvation attack</description>
+    <group>dhcp,attack,omada,gcf,T1499</group>
+  </rule>
+
+  <!-- ── AP availability ── -->
+  <rule id="100121" level="7">
+    <decoded_as>omada-ap-status</decoded_as>
+    <match>offline|lost|disconnect|unreachable|down</match>
+    <description>Omada GCF: Access Point went offline</description>
+    <group>availability,ap,omada,gcf</group>
+  </rule>
+
+  <rule id="100122" level="3">
+    <decoded_as>omada-ap-status</decoded_as>
+    <match>online|connect|adopt|managed</match>
+    <description>Omada GCF: Access Point came online</description>
+    <group>availability,ap,omada,gcf</group>
+  </rule>
+
+  <!-- ── Switch events ── -->
+  <rule id="100123" level="7">
+    <decoded_as>omada-switch</decoded_as>
+    <match>loop detect|Loop Detect|STP.*block|spanning.*tree.*block</match>
+    <description>Omada GCF: network loop detected on switch — port blocked</description>
+    <group>network,loop,omada,gcf</group>
+  </rule>
+
+  <rule id="100124" level="5">
+    <decoded_as>omada-switch</decoded_as>
+    <match>link down|port down|Port Down</match>
+    <description>Omada GCF: switch port link down</description>
+    <group>availability,switch,omada,gcf</group>
+  </rule>
+
+  <!-- ── Admin / config change events ── -->
+  <rule id="100125" level="5">
+    <decoded_as>omada-admin</decoded_as>
+    <match>login|Login|logged in|authenticated</match>
+    <description>Omada GCF: admin login to controller</description>
+    <group>authentication_success,admin,omada,gcf</group>
+  </rule>
+
+  <rule id="100126" level="8">
+    <decoded_as>omada-admin</decoded_as>
+    <match>login fail|Login fail|failed|incorrect|wrong password</match>
+    <description>Omada GCF: admin login failure</description>
+    <group>authentication_failures,admin,omada,gcf</group>
+  </rule>
+
+  <!-- Admin login failure brute force -->
+  <rule id="100127" level="12" frequency="4" timeframe="120">
+    <if_matched_sid>100126</if_matched_sid>
+    <same_source_ip />
+    <description>Omada GCF: CRITICAL — repeated admin login failures — brute force on controller</description>
+    <group>authentication_failures,attack,admin,omada,gcf,T1110</group>
+  </rule>
+
+  <!-- Config change — always medium alert for audit trail -->
+  <rule id="100128" level="6">
+    <decoded_as>omada-admin</decoded_as>
+    <match>config.*change|changed|modified|updated|deleted|created|applied</match>
+    <description>Omada GCF: controller configuration changed</description>
+    <group>configuration_change,admin,omada,gcf,T1562</group>
+  </rule>
+
+  <!-- Firmware upgrade -->
+  <rule id="100129" level="5">
+    <decoded_as>omada-admin</decoded_as>
+    <match>firmware|upgrade|update</match>
+    <description>Omada GCF: firmware upgrade event</description>
+    <group>configuration_change,admin,omada,gcf</group>
+  </rule>
+
+  <!-- CRITICAL: factory reset -->
+  <rule id="100130" level="13">
+    <if_sid>100100</if_sid>
+    <match>factory reset|Factory Reset|factory-reset|reset to factory</match>
+    <description>Omada GCF: CRITICAL — factory reset performed on network device</description>
+    <group>attack,configuration_change,admin,omada,gcf,T1562</group>
+  </rule>
+
+
+  <!-- ======================================================
+       VIRUSTOTAL INTEGRATION RULES
+       Base rules 87100-87110 are in Wazuh default ruleset.
+       These custom rules escalate/contextualize VT hits.
+       ====================================================== -->
+
+  <!-- VT: malicious file confirmed — escalate to critical -->
+  <rule id="100200" level="14">
+    <if_sid>87105</if_sid>
+    <description>VirusTotal: MALWARE DETECTED on endpoint — file flagged by AV engines</description>
+    <group>malware,virustotal,attack,T1204</group>
+  </rule>
+
+  <!-- VT: malicious file in a temp/download location — higher confidence execution risk -->
+  <rule id="100201" level="15">
+    <if_sid>87105</if_sid>
+    <match>Temp|temp|Downloads|downloads|AppData</match>
+    <description>VirusTotal: CRITICAL — malware in Temp/Downloads — likely active threat</description>
+    <group>malware,virustotal,attack,T1204,T1059</group>
+  </rule>
+
+  <!-- VT: clean suppressed - rule 100202 reserved for future use -->
+  <rule id="100202" level="0">
+    <if_sid>87103</if_sid>
+    <description>VirusTotal: File hash clean (informational)</description>
+  </rule>
+
+  <!-- VT: clean file notification — demote to 0 (informational only) -->
+  <rule id="100203" level="0">
+    <if_sid>87103</if_sid>
+    <description>VirusTotal: File hash clean (suppressed)</description>
+  </rule>
+
+  <!-- VT: API rate limit hit — warn but don't alert -->
+  <rule id="100204" level="2">
+    <if_sid>87104</if_sid>
+    <description>VirusTotal: API rate limit reached — some hashes not checked</description>
+    <group>virustotal</group>
+  </rule>
+
+
+  <!-- ======================================================
+       CLAMAV RULES
+       Wazuh default ClamAV rules: 52500-52530
+       These extend/escalate the built-in ones.
+       ====================================================== -->
+
+  <!-- ClamAV: any infection found — level 12 -->
+  <rule id="100210" level="12">
+    <if_sid>52502</if_sid>
+    <description>ClamAV: Malware detected on endpoint — quarantine recommended</description>
+    <group>malware,antivirus,T1204</group>
+  </rule>
+
+  <!-- ClamAV: infection in a sensitive path — critical -->
+  <rule id="100211" level="14">
+    <if_sid>52502</if_sid>
+    <match>/tmp|/var/tmp|/home|/root|/opt</match>
+    <description>ClamAV: CRITICAL — malware found in high-risk directory</description>
+    <group>malware,antivirus,attack,T1204</group>
+  </rule>
+
+  <!-- ClamAV: database updated — informational, suppress -->
+  <rule id="100212" level="0">
+    <if_sid>52501</if_sid>
+    <description>ClamAV: Virus database updated (suppressed)</description>
+  </rule>
+
+  <!-- ClamAV: scan error — low alert so we know if it breaks -->
+  <rule id="100213" level="3">
+    <if_sid>52500</if_sid>
+    <match>ERROR|error|failed|Failed</match>
+    <description>ClamAV: Scan error reported</description>
+    <group>antivirus</group>
+  </rule>
+
+
+  <!-- ======================================================
+       WINDOWS DEFENDER RULES
+       Event IDs via Microsoft-Windows-Windows Defender/Operational
+       Wazuh maps these through sysmon/win rules — base SIDs below.
+       ====================================================== -->
+
+  <!-- Defender: malware detected (Event 1116) -->
+  <rule id="100220" level="12">
+    <if_sid>61702</if_sid>
+    <description>Windows Defender: Malware detected on endpoint</description>
+    <group>malware,windows_defender,T1204</group>
+  </rule>
+
+  <!-- Defender: malware action taken/blocked (Event 1117) -->
+  <rule id="100221" level="8">
+    <if_sid>61703</if_sid>
+    <description>Windows Defender: Malware blocked/quarantined</description>
+    <group>malware,windows_defender,T1204</group>
+  </rule>
+
+  <!-- Defender: real-time protection disabled (Event 5001) — critical -->
+  <rule id="100222" level="13">
+    <if_sid>61704</if_sid>
+    <description>Windows Defender: CRITICAL — Real-time protection disabled</description>
+    <group>malware,windows_defender,defense_evasion,T1562.001</group>
+  </rule>
+
+  <!-- Defender: scan failed -->
+  <rule id="100223" level="6">
+    <if_sid>61706</if_sid>
+    <description>Windows Defender: Scheduled scan failed</description>
+    <group>windows_defender</group>
+  </rule>
+
+  <!-- Defender: definition update failed — machine unprotected -->
+  <rule id="100224" level="7">
+    <if_sid>61710</if_sid>
+    <description>Windows Defender: Definition update failed — signatures may be stale</description>
+    <group>windows_defender</group>
+  </rule>
+
+
+  <!-- ======================================================
+       WINDOWS LOGON MONITORING
+       Events: 4624 (logon), 4625 (failed), 4672 (privs), 4648 (explicit creds)
+       ====================================================== -->
+
+  <!-- 4624 Type 2 — Local interactive logon (console) -->
+  <rule id="100300" level="5">
+    <if_group>windows</if_group>
+    <field name="win.system.eventID">^4624$</field>
+    <field name="win.eventdata.logonType">^2$</field>
+    <description>Windows Logon: Local interactive login (Type 2) - $(win.eventdata.targetUserName) on $(win.eventdata.workstationName)</description>
+    <group>authentication_success,windows_logon,T1078</group>
+  </rule>
+
+  <!-- 4624 Type 3 — Network logon -->
+  <rule id="100301" level="5">
+    <if_group>windows</if_group>
+    <field name="win.system.eventID">^4624$</field>
+    <field name="win.eventdata.logonType">^3$</field>
+    <description>Windows Logon: Network login (Type 3) - $(win.eventdata.targetUserName) from $(win.eventdata.ipAddress)</description>
+    <group>authentication_success,windows_logon,T1078</group>
+  </rule>
+
+  <!-- 4624 Type 10 — RDP / RemoteInteractive logon -->
+  <rule id="100302" level="8">
+    <if_group>windows</if_group>
+    <field name="win.system.eventID">^4624$</field>
+    <field name="win.eventdata.logonType">^10$</field>
+    <description>Windows Logon: RDP login (Type 10) - $(win.eventdata.targetUserName) from $(win.eventdata.ipAddress)</description>
+    <group>authentication_success,windows_logon,rdp,T1021.001</group>
+  </rule>
+
+  <!-- RDP login outside business hours — escalate -->
+  <rule id="100303" level="11">
+    <if_sid>100302</if_sid>
+    <time>20:00 - 07:00</time>
+    <description>Windows Logon: RDP login OUTSIDE BUSINESS HOURS - $(win.eventdata.targetUserName) from $(win.eventdata.ipAddress)</description>
+    <group>authentication_success,windows_logon,rdp,policy_violation,T1021.001</group>
+  </rule>
+
+  <!-- 4625 — Failed logon (any type) -->
+  <rule id="100304" level="6">
+    <if_group>windows</if_group>
+    <field name="win.system.eventID">^4625$</field>
+    <description>Windows Logon: Failed logon - $(win.eventdata.targetUserName) from $(win.eventdata.ipAddress)</description>
+    <group>authentication_failures,windows_logon,T1110</group>
+  </rule>
+
+  <!-- 4625 — Brute force: repeated failures same user -->
+  <rule id="100305" level="10" frequency="5" timeframe="120">
+    <if_matched_sid>100304</if_matched_sid>
+    <same_field>win.eventdata.targetUserName</same_field>
+    <description>Windows Logon: Brute force - repeated failures for $(win.eventdata.targetUserName)</description>
+    <group>authentication_failures,windows_logon,brute_force,T1110</group>
+  </rule>
+
+  <!-- 4625 — Brute force: repeated failures same source IP -->
+  <rule id="100306" level="10" frequency="8" timeframe="120">
+    <if_matched_sid>100304</if_matched_sid>
+    <same_field>win.eventdata.ipAddress</same_field>
+    <description>Windows Logon: Brute force from $(win.eventdata.ipAddress) - multiple accounts targeted</description>
+    <group>authentication_failures,windows_logon,brute_force,T1110</group>
+  </rule>
+
+  <!-- 4672 — Special privileges assigned -->
+  <rule id="100307" level="7">
+    <if_group>windows</if_group>
+    <field name="win.system.eventID">^4672$</field>
+    <description>Windows Logon: Special privileges assigned to $(win.eventdata.subjectUserName)</description>
+    <group>windows_logon,privilege_escalation,T1078.002</group>
+  </rule>
+
+  <!-- 4672 — Special privileges for non-service account -->
+  <rule id="100308" level="9">
+    <if_sid>100307</if_sid>
+    <field name="win.eventdata.subjectUserName" negate="yes">^SYSTEM$|^LOCAL SERVICE$|^NETWORK SERVICE$|^\$$</field>
+    <description>Windows Logon: Special privileges assigned to non-service account $(win.eventdata.subjectUserName) - verify expected</description>
+    <group>windows_logon,privilege_escalation,T1078.002</group>
+  </rule>
+
+  <!-- 4648 — Explicit credentials used (runas / pass-the-hash indicator) -->
+  <rule id="100309" level="8">
+    <if_group>windows</if_group>
+    <field name="win.system.eventID">^4648$</field>
+    <description>Windows Logon: Explicit credentials used by $(win.eventdata.subjectUserName) targeting $(win.eventdata.targetUserName)</description>
+    <group>windows_logon,credential_access,T1550.002</group>
+  </rule>
+
+  <!-- 4648 — Explicit creds targeting admin account -->
+  <rule id="100310" level="12">
+    <if_sid>100309</if_sid>
+    <field name="win.eventdata.targetUserName">Administrator|admin|Admin</field>
+    <description>Windows Logon: ALERT — Explicit credentials used to access admin account - possible lateral movement</description>
+    <group>windows_logon,credential_access,lateral_movement,T1550.002</group>
+  </rule>
+
+</group>

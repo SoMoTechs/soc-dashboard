@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/svg+xml" href="/favicon.ico">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SomoTechs SOC — Sign In</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080c14;
+  --surface:#0e1420;
+  --border:rgba(255,255,255,0.08);
+  --accent:#1D6FFF;
+  --red:#ef4444;
+  --text:#e8eaf0;
+  --text-muted:#8892a4;
+  --text-subtle:#64748b;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;}
+body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;font-size:14px;display:flex;align-items:center;justify-content:center;min-height:100vh;}
+
+/* subtle grid bg */
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(29,111,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(29,111,255,.03) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;}
+
+.login-wrap{width:100%;max-width:380px;padding:20px;}
+.login-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:32px;}
+.login-logo{display:flex;align-items:center;gap:12px;margin-bottom:28px;}
+.logo-icon{width:40px;height:40px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:white;flex-shrink:0;}
+.logo-title{font-size:16px;font-weight:700;color:var(--text);}
+.logo-sub{font-size:11px;color:var(--text-subtle);}
+
+h2{font-size:18px;font-weight:600;margin-bottom:4px;}
+.form-sub{font-size:13px;color:var(--text-muted);margin-bottom:24px;}
+
+.form-group{margin-bottom:16px;}
+label{display:block;font-size:12px;font-weight:500;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px;}
+input[type="text"],input[type="password"]{
+  width:100%;background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--text);
+  font-family:'Inter',sans-serif;font-size:14px;padding:10px 14px;border-radius:7px;outline:none;
+  transition:border-color .15s;
+}
+input::placeholder{color:var(--text-subtle);}
+input:focus{border-color:var(--accent);}
+
+.btn-submit{
+  width:100%;padding:11px;background:var(--accent);border:none;border-radius:7px;
+  color:white;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s;margin-top:4px;
+}
+.btn-submit:hover{background:#1558CC;}
+
+.error-msg{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);color:var(--red);padding:10px 14px;border-radius:7px;font-size:13px;margin-bottom:16px;}
+
+.login-footer{text-align:center;margin-top:20px;font-size:11px;color:var(--text-subtle);}
+</style>
+</head>
+<body>
+<div class="login-wrap">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="logo-icon">S</div>
+      <div>
+        <div class="logo-title">SomoTechs</div>
+        <div class="logo-sub">Security Operations Center</div>
+      </div>
+    </div>
+
+    <h2>Sign In</h2>
+    <div class="form-sub">Enter your credentials to access the SOC dashboard.</div>
+
+    {% if error %}
+    <div class="error-msg">{{ error }}</div>
+    {% endif %}
+
+    <form method="POST" action="/login">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" name="username" placeholder="username" autocomplete="username" autofocus required>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" name="password" placeholder="••••••••" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn-submit">Sign In →</button>
+    </form>
+  </div>
+  <div class="login-footer">SomoTechs SOC · Restricted Access</div>
+</div>
+</body>
+</html>

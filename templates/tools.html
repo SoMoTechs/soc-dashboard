@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>SomoTechs — Fix It</title>
+  <link rel="icon" href="/favicon.ico" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/themes.css">
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg,#0a0a14);color:var(--text,#e2e8f0);min-height:100vh}
+
+    /* ── TOP BAR ── */
+    .topbar{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:14px 24px;background:#0f172a;border-bottom:1px solid #1e293b;
+      position:sticky;top:0;z-index:100
+    }
+    .topbar-logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:1.1rem;color:#f1f5f9;text-decoration:none}
+    .topbar-logo span{font-size:1.4rem}
+    .topbar-nav{display:flex;gap:6px}
+    .topbar-nav a{color:#64748b;text-decoration:none;font-size:.82rem;padding:5px 10px;border-radius:5px;border:1px solid transparent}
+    .topbar-nav a:hover{background:#1e293b;color:#f1f5f9;border-color:#334155}
+
+    /* ── HERO ── */
+    .hero{text-align:center;padding:48px 24px 32px;max-width:700px;margin:0 auto}
+    .hero h1{font-size:2rem;font-weight:800;color:#f1f5f9;margin-bottom:10px}
+    .hero p{font-size:1rem;color:#64748b;line-height:1.6}
+
+    /* ── MACHINE PICKER ── */
+    .picker{max-width:480px;margin:0 auto 40px;padding:0 24px}
+    .picker label{display:block;font-size:.82rem;color:#64748b;margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em}
+    .picker select{
+      width:100%;padding:12px 16px;background:#0f172a;border:1px solid #334155;
+      border-radius:8px;color:#f1f5f9;font-size:1rem;font-family:inherit;cursor:pointer;
+      appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2364748b' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat:no-repeat;background-position:right 14px center
+    }
+    .picker select:focus{outline:none;border-color:#3b82f6}
+    .picker .online-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#4ade80;margin-right:4px}
+
+    /* ── SYMPTOM GRID ── */
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;max-width:1100px;margin:0 auto;padding:0 24px 60px}
+
+    .card{
+      background:#0f172a;border:1px solid #1e293b;border-radius:12px;
+      padding:22px 20px;cursor:pointer;transition:all .15s;position:relative;overflow:hidden;
+      display:flex;flex-direction:column;gap:10px
+    }
+    .card:hover{border-color:#3b82f6;background:#111827;transform:translateY(-2px);box-shadow:0 4px 20px rgba(59,130,246,.15)}
+    .card.running{border-color:#f59e0b;background:#111;animation:pulse-border 1.5s infinite}
+    .card.done{border-color:#4ade80;background:#0a1a0f}
+    .card.error{border-color:#ef4444;background:#1a0a0a}
+    @keyframes pulse-border{0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,.4)}50%{box-shadow:0 0 0 4px rgba(245,158,11,0)}}
+
+    .card-icon{font-size:2.2rem;line-height:1}
+    .card-label{font-size:1rem;font-weight:700;color:#f1f5f9;line-height:1.3}
+    .card-desc{font-size:.8rem;color:#64748b;line-height:1.5;flex:1}
+    .card-status{font-size:.78rem;font-weight:600;padding:3px 8px;border-radius:4px;display:inline-block;width:fit-content}
+    .card-status.pending{background:rgba(245,158,11,.12);color:#f59e0b}
+    .card-status.done-ok{background:rgba(74,222,128,.12);color:#4ade80}
+    .card-status.done-err{background:rgba(239,68,68,.12);color:#ef4444}
+    .card-run-btn{
+      background:#1d4ed8;border:none;color:white;border-radius:7px;
+      padding:9px 0;font-size:.88rem;font-weight:700;cursor:pointer;font-family:inherit;
+      transition:background .12s;width:100%;margin-top:4px
+    }
+    .card-run-btn:hover{background:#2563eb}
+    .card-run-btn:disabled{background:#1e293b;color:#475569;cursor:not-allowed}
+
+    /* ── OUTPUT MODAL ── */
+    .modal-overlay{
+      position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1000;
+      display:flex;align-items:flex-start;justify-content:center;padding:24px;overflow-y:auto
+    }
+    .modal{
+      background:#0f172a;border:1px solid #1e293b;border-radius:12px;
+      width:100%;max-width:760px;padding:28px;margin:auto
+    }
+    .modal-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;gap:12px}
+    .modal-title{font-size:1.1rem;font-weight:700;color:#f1f5f9}
+    .modal-close{background:#1e293b;border:1px solid #334155;color:#94a3b8;border-radius:6px;padding:6px 12px;cursor:pointer;font-family:inherit;font-size:.85rem}
+    .output-box{
+      background:#050810;border:1px solid #1e293b;border-radius:8px;padding:16px;
+      font-family:'Cascadia Code','JetBrains Mono',monospace;font-size:.8rem;
+      color:#94a3b8;white-space:pre-wrap;word-break:break-word;
+      max-height:420px;overflow-y:auto;line-height:1.6
+    }
+    .output-box .out-line-ok{color:#4ade80}
+    .output-box .out-line-warn{color:#f59e0b}
+    .output-box .out-line-err{color:#ef4444}
+    .spinner{display:inline-block;width:16px;height:16px;border:2px solid #334155;border-top-color:#3b82f6;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* ── PROXMOX SECTION ── */
+    .section-title{
+      max-width:1100px;margin:0 auto 16px;padding:0 24px;
+      font-size:.78rem;text-transform:uppercase;letter-spacing:.1em;color:#475569;
+      display:flex;align-items:center;gap:10px
+    }
+    .section-title::after{content:'';flex:1;height:1px;background:#1e293b}
+    .proxmox-banner{
+      max-width:1100px;margin:0 auto 40px;padding:0 24px;
+      display:grid;grid-template-columns:1fr 1fr;gap:14px
+    }
+    .px-card{background:#0f172a;border:1px solid #1e293b;border-radius:10px;padding:18px 20px}
+    .px-card h3{font-size:.88rem;font-weight:700;color:#f1f5f9;margin-bottom:6px}
+    .px-card p{font-size:.8rem;color:#64748b;line-height:1.5;margin-bottom:10px}
+    .px-card code{font-family:'JetBrains Mono',monospace;font-size:.75rem;color:#94a3b8;background:#0a0a14;border:1px solid #1e293b;border-radius:4px;padding:2px 6px}
+    .px-tag{display:inline-block;font-size:.72rem;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.25);color:#93c5fd;border-radius:4px;padding:2px 8px;margin-right:4px;margin-top:4px}
+    @media(max-width:640px){.proxmox-banner,.grid{grid-template-columns:1fr}.picker{max-width:100%}}
+  </style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<nav class="topbar">
+  <a class="topbar-logo" href="/"><span>🛡</span> SomoTechs</a>
+  <div class="topbar-nav">
+    <a href="/">Dashboard</a>
+    <a href="/agents">Machines</a>
+    <a href="/clients">Clients</a>
+    <a href="/tools" style="color:#f1f5f9;border-color:#334155">Fix It</a>
+    <a href="/backups">Backups</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <h1>What's wrong with the computer?</h1>
+  <p>Pick the machine, then click what's going on. SomoTechs will fix it automatically — no tech knowledge needed.</p>
+</div>
+
+<!-- MACHINE PICKER -->
+<div class="picker">
+  <label>Which computer?</label>
+  <select id="machine-select">
+    <option value="">— Loading machines... —</option>
+  </select>
+</div>
+
+<!-- SYMPTOM GRID (injected by JS from /api/tools/scripts) -->
+<div class="section-title">Pick a symptom</div>
+<div class="grid" id="symptom-grid">
+  <div style="grid-column:1/-1;text-align:center;padding:40px;color:#475569">Loading...</div>
+</div>
+
+<!-- PROXMOX COMPUTE SECTION -->
+<div class="section-title">Proxmox Extra Compute</div>
+<div class="proxmox-banner">
+  <div class="px-card">
+    <h3>🖥 Offload Wazuh Indexer</h3>
+    <p>Move OpenSearch (the RAM-hungry part of Wazuh) to your Proxmox VM. Frees 4–8 GB RAM on the main box for more agents and faster dashboards.</p>
+    <div>
+      <span class="px-tag">Ubuntu 22.04 VM</span>
+      <span class="px-tag">8GB RAM recommended</span>
+      <span class="px-tag">100GB disk</span>
+    </div>
+    <p style="margin-top:10px;font-size:.78rem;color:#475569">Setup: create VM on Proxmox → install wazuh-indexer → point <code>wazuh.yml</code> on main box to Proxmox IP.</p>
+  </div>
+  <div class="px-card">
+    <h3>📦 Dedicated Backup Server</h3>
+    <p>Run the Restic REST server on Proxmox instead of the main box. Snapshots stream directly to Proxmox storage, zero load on your main NAS.</p>
+    <div>
+      <span class="px-tag">Ubuntu 22.04 VM</span>
+      <span class="px-tag">2GB RAM</span>
+      <span class="px-tag">Large disk / NFS mount</span>
+    </div>
+    <p style="margin-top:10px;font-size:.78rem;color:#475569">Setup: install <code>rest-server</code> on Proxmox → update <code>RESTIC_REST_URL</code> in SOC <code>.env</code>.</p>
+  </div>
+  <div class="px-card">
+    <h3>🔍 Suricata IDS Node</h3>
+    <p>Run Suricata on a Proxmox VM with a bridged NIC mirroring your LAN traffic. Catches threats your endpoints don't see.</p>
+    <div>
+      <span class="px-tag">Ubuntu 22.04 VM</span>
+      <span class="px-tag">4GB RAM</span>
+      <span class="px-tag">Bridged NIC + port mirror</span>
+    </div>
+    <p style="margin-top:10px;font-size:.78rem;color:#475569">Logs to <code>/var/log/suricata/eve.json</code> → picked up by Wazuh agent → alerts flow to SOC dashboard.</p>
+  </div>
+  <div class="px-card">
+    <h3>🌐 Remote Site Node</h3>
+    <p>Put a lightweight Proxmox box at a client site. Runs local CrowdSec + beacon relay, phones home to your SOC over WireGuard.</p>
+    <div>
+      <span class="px-tag">Mini PC / old box</span>
+      <span class="px-tag">Proxmox or Ubuntu</span>
+      <span class="px-tag">WireGuard tunnel</span>
+    </div>
+    <p style="margin-top:10px;font-size:.78rem;color:#475569">Client machines enroll with same deploy script. All alerts show up under that client in your dashboard.</p>
+  </div>
+</div>
+
+<!-- OUTPUT MODAL -->
+<div class="modal-overlay" id="output-modal" style="display:none" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div id="modal-icon" style="font-size:1.8rem;margin-bottom:6px"></div>
+        <div class="modal-title" id="modal-title"></div>
+        <div id="modal-machine" style="font-size:.8rem;color:#64748b;margin-top:2px"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕ Close</button>
+    </div>
+    <div id="modal-status" style="margin-bottom:14px"></div>
+    <div class="output-box" id="modal-output">Waiting for response from machine...</div>
+    <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
+      <button onclick="closeModal()" style="background:#1e293b;border:1px solid #334155;color:#94a3b8;border-radius:6px;padding:8px 16px;cursor:pointer;font-family:inherit">Close</button>
+      <button id="modal-copy-btn" onclick="copyOutput()" style="background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.3);color:#38bdf8;border-radius:6px;padding:8px 16px;cursor:pointer;font-family:inherit">📋 Copy Output</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Load scripts from backend ──────────────────────────────────────────
+const SCRIPTS = [
+  {slug:'check_health',  label:"Check Computer's Overall Health",      icon:'🩺',  desc:'Reports CPU, RAM, disk space, uptime, and recent errors.'},
+  {slug:'slow',          label:'Computer is Running Slow',              icon:'🐢',  desc:'Clears temp files, empties recycle bin, restarts Explorer.'},
+  {slug:'no_internet',   label:'Cannot Connect to the Internet',        icon:'🌐',  desc:'Resets TCP/IP stack, flushes DNS, renews IP address.'},
+  {slug:'printer',       label:'Printer Stopped Working',               icon:'🖨️', desc:'Clears print queue, restarts Print Spooler service.'},
+  {slug:'frozen',        label:'Screen is Frozen / Apps Not Responding',icon:'🧊',  desc:'Kills stuck processes, restarts Windows Explorer.'},
+  {slug:'cant_open_files',label:"Can't Open Files or Programs Crash",   icon:'📂',  desc:'Runs System File Checker to repair corrupted system files.'},
+  {slug:'disk_full',     label:'Running Out of Disk Space',             icon:'💾',  desc:'Removes temp files, empties recycle bin, clears update cache.'},
+  {slug:'update_broken', label:'Windows Update Not Working',            icon:'🔄',  desc:'Resets all Windows Update components and cache.'},
+  {slug:'no_sound',      label:'No Sound / Audio Not Working',          icon:'🔇',  desc:'Restarts Windows Audio services.'},
+  {slug:'virus_scan',    label:'Think There May Be a Virus',            icon:'🦠',  desc:'Triggers a Windows Defender quick scan.'},
+];
+
+// Card state per slug
+const state = {};
+
+// ── Render grid ────────────────────────────────────────────────────────
+function renderGrid(){
+  const grid = document.getElementById('symptom-grid');
+  grid.innerHTML = SCRIPTS.map(s => `
+    <div class="card" id="card-${s.slug}">
+      <div class="card-icon">${s.icon}</div>
+      <div class="card-label">${s.label}</div>
+      <div class="card-desc">${s.desc}</div>
+      <div id="status-${s.slug}" style="display:none"></div>
+      <button class="card-run-btn" id="btn-${s.slug}" onclick="runScript('${s.slug}','${s.label}','${s.icon}')">
+        Run Fix
+      </button>
+    </div>
+  `).join('');
+}
+
+// ── Load machines ──────────────────────────────────────────────────────
+function loadMachines(){
+  fetch('/api/rmm/agents')
+    .then(r=>r.json()).then(data=>{
+      const sel = document.getElementById('machine-select');
+      const agents = Array.isArray(data) ? data : (data.agents||[]);
+      if(!agents.length){
+        sel.innerHTML='<option value="">No machines online</option>';
+        return;
+      }
+      sel.innerHTML='<option value="">— Pick a computer —</option>'
+        + agents.map(a=>{
+          const online = a.last_seen && (Date.now()-new Date(a.last_seen+'Z').getTime())<180000;
+          const dot = online ? '🟢' : '🔴';
+          return `<option value="${esc(a.hostname)}">${dot} ${esc(a.hostname)} ${a.logged_user?'('+esc(a.logged_user)+')':''}</option>`;
+        }).join('');
+    }).catch(()=>{
+      document.getElementById('machine-select').innerHTML='<option value="">Could not load machines</option>';
+    });
+}
+
+function esc(s){return String(s||'').replace(/[<>"&']/g,c=>({'<':'&lt;','>':'&gt;','"':'&quot;','&':'&amp;',"'":'&#39;'}[c]))}
+
+// ── Run a script ────────────────────────────────────────────────────────
+function runScript(slug, label, icon){
+  const hostname = document.getElementById('machine-select').value;
+  if(!hostname){
+    alert('Pick a computer first!');
+    document.getElementById('machine-select').focus();
+    return;
+  }
+  const btn = document.getElementById('btn-'+slug);
+  const card = document.getElementById('card-'+slug);
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Sending...';
+  card.className = 'card running';
+
+  fetch('/api/tools/run',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({hostname, slug})
+  }).then(r=>r.json()).then(d=>{
+    if(!d.ok){
+      btn.disabled=false;btn.innerHTML='Run Fix';card.className='card error';
+      alert('Error: '+(d.error||'unknown'));return;
+    }
+    state[slug]={cmd_id:d.cmd_id,hostname,label,icon};
+    showModal(slug,label,icon,hostname,d.cmd_id);
+    pollStatus(slug,d.cmd_id);
+  }).catch(()=>{
+    btn.disabled=false;btn.innerHTML='Run Fix';card.className='card';
+    alert('Could not reach server.');
+  });
+}
+
+// ── Poll for result ─────────────────────────────────────────────────────
+let _pollTimer = null;
+function pollStatus(slug, cmdId){
+  if(_pollTimer)clearInterval(_pollTimer);
+  _pollTimer = setInterval(()=>{
+    fetch('/api/tools/status/'+cmdId)
+      .then(r=>r.json()).then(d=>{
+        updateModal(d);
+        if(d.status==='completed'||d.status==='failed'){
+          clearInterval(_pollTimer);
+          const card=document.getElementById('card-'+slug);
+          const btn=document.getElementById('btn-'+slug);
+          card.className='card '+(d.status==='completed'?'done':'error');
+          btn.disabled=false;
+          btn.innerHTML='Run Again';
+          const statusEl=document.getElementById('status-'+slug);
+          if(statusEl){
+            statusEl.style.display='block';
+            statusEl.innerHTML=`<span class="card-status ${d.status==='completed'?'done-ok':'done-err'}">${d.status==='completed'?'✓ Done':'✗ Error'}</span>`;
+          }
+        }
+      }).catch(()=>{});
+  },2500);
+}
+
+// ── Modal ──────────────────────────────────────────────────────────────
+function showModal(slug,label,icon,hostname,cmdId){
+  document.getElementById('modal-icon').textContent=icon;
+  document.getElementById('modal-title').textContent=label;
+  document.getElementById('modal-machine').textContent='Running on: '+hostname;
+  document.getElementById('modal-output').innerHTML='<span class="spinner"></span> Waiting for '+hostname+' to respond...';
+  document.getElementById('modal-status').innerHTML=`<span class="card-status pending"><span class="spinner"></span> Running...</span>`;
+  document.getElementById('output-modal').style.display='flex';
+}
+
+function updateModal(d){
+  const outEl=document.getElementById('modal-output');
+  const statusEl=document.getElementById('modal-status');
+  if(d.output){
+    outEl.innerHTML=colorOutput(d.output);
+    outEl.scrollTop=outEl.scrollHeight;
+  }
+  if(d.status==='completed'){
+    statusEl.innerHTML='<span class="card-status done-ok">✓ Completed</span>';
+  } else if(d.status==='failed'){
+    statusEl.innerHTML='<span class="card-status done-err">✗ Failed</span>';
+  } else {
+    statusEl.innerHTML='<span class="card-status pending"><span class="spinner"></span> Running...</span>';
+  }
+}
+
+function colorOutput(text){
+  return String(text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .split('\n').map(line=>{
+      if(/error|fail|exception|denied|cannot|unable|warn/i.test(line))
+        return `<span class="out-line-err">${line}</span>`;
+      if(/done|success|ok|started|stopped|restart|complete|free space after/i.test(line))
+        return `<span class="out-line-ok">${line}</span>`;
+      if(/---/i.test(line))
+        return `<span class="out-line-warn">${line}</span>`;
+      return line;
+    }).join('\n');
+}
+
+function closeModal(){
+  document.getElementById('output-modal').style.display='none';
+  if(_pollTimer)clearInterval(_pollTimer);
+}
+
+function copyOutput(){
+  const text=document.getElementById('modal-output').innerText;
+  navigator.clipboard.writeText(text).then(()=>{
+    const btn=document.getElementById('modal-copy-btn');
+    btn.textContent='✓ Copied!';setTimeout(()=>btn.textContent='📋 Copy Output',2000);
+  });
+}
+
+// ── Init ───────────────────────────────────────────────────────────────
+renderGrid();
+loadMachines();
+setInterval(loadMachines, 30000);
+
+// Theme init
+(function(){
+  const t=localStorage.getItem('soc-theme')||'dark';
+  document.documentElement.setAttribute('data-theme',t);
+})();
+</script>
+</body>
+</html>
