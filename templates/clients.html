@@ -207,6 +207,19 @@ body{background:var(--bg);background-image:radial-gradient(ellipse 80% 60% at 10
       <div id="portal-list"><div class="empty">No portal links yet. Generate one above.</div></div>
     </div>
 
+    <!-- MESHCENTRAL GROUPS -->
+    <div class="section">
+      <div class="section-hdr">
+        <div class="section-title">🖥 MeshCentral Device Groups</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input id="mesh-new-name" type="text" placeholder="New group name (e.g. GCF)" style="background:var(--surface-2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:11px;padding:4px 8px;font-family:inherit;width:160px;">
+          <button class="btn btn-primary" onclick="createMeshGroup()" style="padding:5px 12px;font-size:11px;">+ Create Group</button>
+          <button class="btn" onclick="loadMeshGroups()" style="padding:5px 12px;font-size:11px;background:var(--surface-2);border:1px solid var(--border);">↻ Refresh</button>
+        </div>
+      </div>
+      <div id="mesh-group-list" style="padding:12px 20px;"><div class="empty">Loading groups...</div></div>
+    </div>
+
     <!-- WHITE-LABEL SETTINGS -->
     <div class="section">
       <div class="section-hdr">
@@ -514,9 +527,50 @@ function saveWhiteLabel(){
     });
 }
 
+async function loadMeshGroups(){
+  const el = document.getElementById('mesh-group-list');
+  el.innerHTML = '<div class="empty">Loading...</div>';
+  try {
+    const r = await fetch('/api/mesh/groups');
+    const groups = await r.json();
+    if (!groups.length) { el.innerHTML = '<div class="empty">No groups yet. Create one above.</div>'; return; }
+    el.innerHTML = groups.map(g => `
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);">
+        <span style="font-size:12px;font-weight:600;color:var(--text);min-width:120px;">🖥 ${escHtml(g.name)}</span>
+        <span style="font-size:10px;color:var(--text-subtle);min-width:80px;">${g.device_count} device${g.device_count!==1?'s':''}</span>
+        <code style="flex:1;font-size:9px;color:var(--text-muted);background:var(--surface-2);padding:4px 8px;border-radius:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(g.install_cmd)}</code>
+        <button onclick="copyMeshCmd(this,'${escHtml(g.install_cmd).replace(/'/g,"\\'")}','${escHtml(g.name)}')" style="padding:3px 10px;font-size:10px;font-weight:600;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.3);border-radius:5px;color:#34d399;cursor:pointer;white-space:nowrap;">📋 Copy</button>
+        <a href="https://mesh.somotechs.com/" target="_blank" style="padding:3px 10px;font-size:10px;font-weight:600;background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.3);border-radius:5px;color:#a78bfa;text-decoration:none;white-space:nowrap;">Open ↗</a>
+      </div>`).join('');
+  } catch(e) {
+    el.innerHTML = '<div class="empty" style="color:var(--red)">Failed to load MeshCentral groups</div>';
+  }
+}
+
+async function createMeshGroup(){
+  const inp = document.getElementById('mesh-new-name');
+  const name = (inp.value||'').trim();
+  if (!name) { inp.focus(); return; }
+  try {
+    const r = await fetch('/api/mesh/groups', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name})});
+    const d = await r.json();
+    if (d.ok) { inp.value=''; loadMeshGroups(); showToast('Group "'+name+'" created','success'); }
+    else showToast(d.error||'Failed','error');
+  } catch(e) { showToast('Error creating group','error'); }
+}
+
+function copyMeshCmd(btn, cmd, name){
+  navigator.clipboard.writeText(cmd).then(()=>{
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copied';
+    setTimeout(()=>btn.textContent=orig, 1500);
+  });
+}
+
 function loadAll(){
   loadClientHealth();
   loadPortalLinks();
+  loadMeshGroups();
   // Load meta for white-label
   fetch('/api/clients/meta').then(r=>r.json()).then(rows=>{
     const clients = [];

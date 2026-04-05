@@ -8,3 +8,4 @@ pyotp==2.9.0
 qrcode[pil]==7.4.2
 anthropic>=0.40.0
 cryptography>=42.0.0
+websockets>=12.0

@@ -1,3 +1,6 @@
+# SomoTechs SOC Dashboard — Copyright (c) 2024-2026 Somo Technologies LLC. All rights reserved.
+# Author: Anthony Gormley | anthony@somotechs.com | https://somotechs.com
+# Unauthorized copying, distribution, or use is strictly prohibited.
 from flask import Flask, render_template, jsonify, request, redirect, session, url_for, send_from_directory
 import requests
 import json
@@ -5932,9 +5935,47 @@ def api_tracker_conversion():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# ── MeshCentral remote access ─────────────────────────────────────────────────
+# ── MeshCentral integration ───────────────────────────────────────────────────
 
-MESH_URL = os.environ.get('MESH_URL', 'https://mesh.somotechs.com')
+MESH_URL         = os.environ.get('MESH_URL', 'https://mesh.somotechs.com')
+MESH_WS_URL      = os.environ.get('MESH_WS_URL', 'ws://meshcentral:4430')
+MESH_USER        = os.environ.get('MESH_USER', 'cloude')
+MESH_PASS        = os.environ.get('MESH_PASS', '')
+
+def _mesh_ws_auth():
+    import base64
+    u = base64.b64encode(MESH_USER.encode()).decode()
+    p = base64.b64encode(MESH_PASS.encode()).decode()
+    return f"{u}, {p}"
+
+async def _mesh_call(payload_list, timeout=8):
+    """Send one or more WS messages to MeshCentral and collect all responses."""
+    import websockets as _ws
+    results = []
+    try:
+        headers = {'x-meshauth': _mesh_ws_auth()}
+        uri = f"{MESH_WS_URL}/control.ashx"
+        async with _ws.connect(uri, additional_headers=headers, open_timeout=6) as ws:
+            for p in payload_list:
+                await ws.send(json.dumps(p))
+            import asyncio
+            deadline = asyncio.get_event_loop().time() + timeout
+            while True:
+                remaining = deadline - asyncio.get_event_loop().time()
+                if remaining <= 0:
+                    break
+                try:
+                    msg = await asyncio.wait_for(ws.recv(), timeout=remaining)
+                    results.append(json.loads(msg))
+                except asyncio.TimeoutError:
+                    break
+    except Exception as e:
+        app.logger.error(f'MeshCentral WS error: {e}')
+    return results
+
+def _mesh_run(payload_list, timeout=8):
+    import asyncio
+    return asyncio.run(_mesh_call(payload_list, timeout))
 
 @app.route('/api/mesh/remote/<hostname>')
 @login_required
@@ -5946,6 +5987,68 @@ def api_mesh_remote(hostname):
     safe = urllib.parse.quote(hostname, safe='')
     url = f"{MESH_URL}/?search={safe}"
     return jsonify({'url': url})
+
+@app.route('/api/mesh/groups', methods=['GET'])
+@login_required
+def api_mesh_groups_list():
+    """List all MeshCentral device groups with their install commands."""
+    msgs = _mesh_run([{'action': 'meshes'}])
+    groups = []
+    for m in msgs:
+        if m.get('action') == 'meshes':
+            for g in (m.get('meshes') or []):
+                mesh_id = g.get('_id', '').replace('mesh//', '')
+                name = g.get('name', '')
+                # Build PowerShell install command (script block style — paste-safe)
+                ps_cmd = (
+                    f'$m="{MESH_URL}/meshagents?id=6&meshid={mesh_id}&meshinstallflags=0"; '
+                    f'$f="$env:TEMP\\ma.msi"; '
+                    f'Invoke-WebRequest -Uri $m -OutFile $f -UseBasicParsing; '
+                    f'Start-Process msiexec.exe -ArgumentList "/i","$f","/quiet" -Wait; '
+                    f'Remove-Item $f'
+                )
+                groups.append({
+                    'name': name,
+                    'id': mesh_id,
+                    'device_count': g.get('deviceCount', 0),
+                    'install_cmd': ps_cmd,
+                    'mesh_url': f"{MESH_URL}/?search="
+                })
+    return jsonify(groups)
+
+MESH_ADMIN_USER = os.environ.get('MESH_ADMIN_USER', 'user//somo')
+
+@app.route('/api/mesh/groups', methods=['POST'])
+@login_required
+def api_mesh_groups_create():
+    """Create a new MeshCentral device group and add all admins to it."""
+    data = request.json or {}
+    name = (data.get('name') or '').strip()[:64]
+    if not name:
+        return jsonify({'error': 'name required'}), 400
+    # Create group then re-list to get the new meshid, then add the site admin
+    msgs = _mesh_run([
+        {'action': 'createmesh', 'meshname': name, 'meshtype': 2, 'responseid': 'create'},
+    ], timeout=5)
+    # Re-fetch groups to find the new meshid
+    msgs2 = _mesh_run([{'action': 'meshes'}], timeout=5)
+    new_meshid = None
+    for m in msgs2:
+        if m.get('action') == 'meshes':
+            for g in (m.get('meshes') or []):
+                if g.get('name') == name:
+                    new_meshid = g.get('_id', '')
+                    break
+    # Add site admin to the new group with full rights
+    if new_meshid:
+        _mesh_run([{
+            'action': 'addmeshuser',
+            'meshid': new_meshid,
+            'userid': MESH_ADMIN_USER,
+            'rights': 4294967295,
+            'responseid': 'addadmin'
+        }], timeout=5)
+    return jsonify({'ok': True, 'name': name, 'meshid': new_meshid})
 
 # ── Start background monitor ──────────────────────────────────────────────────
 
