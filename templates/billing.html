@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Billing — SomoShield</title>
+<style>
+:root{--bg:#0a0a0a;--surface:#111;--surface2:#161616;--border:#1e1e1e;--border2:#2a2a2a;--text:#e5e7eb;--text-subtle:#6b7280;--blue:#1D6FFF;--green:#10b981;--amber:#f59e0b;--red:#ef4444;--purple:#8b5cf6;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;}
+a{color:var(--blue);text-decoration:none;}
+
+/* Layout */
+.wrap{display:flex;min-height:100vh;}
+.sidebar{width:220px;background:var(--surface);border-right:1px solid var(--border);padding:20px 0;display:flex;flex-direction:column;gap:2px;position:sticky;top:0;height:100vh;}
+.logo{padding:0 18px 16px;font-weight:700;font-size:15px;color:var(--text);border-bottom:1px solid var(--border);margin-bottom:8px;}
+.logo span{color:var(--blue);}
+.nav-link{display:flex;align-items:center;gap:10px;padding:8px 18px;color:var(--text-subtle);font-size:13px;border-radius:0;transition:all .15s;}
+.nav-link:hover,.nav-link.active{background:rgba(29,111,255,.08);color:var(--text);}
+.nav-link.active{border-right:2px solid var(--blue);}
+.main{flex:1;padding:24px;overflow-y:auto;}
+
+/* Header */
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;}
+.page-title{font-size:20px;font-weight:700;}
+.page-subtitle{font-size:12px;color:var(--text-subtle);margin-top:2px;}
+
+/* Cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:24px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;}
+.card-label{font-size:11px;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;}
+.card-val{font-size:24px;font-weight:700;font-family:'JetBrains Mono',monospace;}
+.card-val.green{color:var(--green);}
+.card-val.blue{color:var(--blue);}
+.card-val.amber{color:var(--amber);}
+
+/* Panels */
+.panels{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;}
+@media(max-width:900px){.panels{grid-template-columns:1fr;}}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.panel-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);font-size:13px;font-weight:600;}
+.panel-body{padding:16px;}
+
+/* Table */
+.tbl{width:100%;border-collapse:collapse;font-size:12px;}
+.tbl th{text-align:left;padding:7px 10px;border-bottom:1px solid var(--border);color:var(--text-subtle);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.04em;}
+.tbl td{padding:8px 10px;border-bottom:1px solid var(--border);}
+.tbl tr:last-child td{border-bottom:none;}
+.tbl tr:hover td{background:rgba(255,255,255,.02);}
+.mono{font-family:'JetBrains Mono',monospace;font-size:11px;}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:6px;border:none;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;}
+.btn-primary{background:var(--blue);color:#fff;}
+.btn-primary:hover{background:#1559cc;}
+.btn-ghost{background:transparent;color:var(--text-subtle);border:1px solid var(--border2);}
+.btn-ghost:hover{color:var(--text);border-color:var(--blue);}
+.btn-green{background:rgba(16,185,129,.15);color:var(--green);border:1px solid rgba(16,185,129,.2);}
+.btn-green:hover{background:rgba(16,185,129,.25);}
+.btn-red{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.15);}
+.btn-red:hover{background:rgba(239,68,68,.2);}
+.btn-sm{padding:4px 8px;font-size:11px;}
+
+/* Form */
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+.form-row.three{grid-template-columns:1fr 1fr 1fr;}
+.form-full{grid-column:1/-1;}
+label{display:block;font-size:11px;color:var(--text-subtle);margin-bottom:4px;}
+input,select,textarea{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:5px;padding:7px 10px;color:var(--text);font-size:12px;font-family:inherit;}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--blue);}
+textarea{resize:vertical;min-height:60px;}
+
+/* Badge */
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;text-transform:uppercase;}
+.badge-draft{background:rgba(107,114,128,.15);color:var(--text-subtle);}
+.badge-sent{background:rgba(29,111,255,.15);color:var(--blue);}
+.badge-paid{background:rgba(16,185,129,.15);color:var(--green);}
+.badge-void{background:rgba(239,68,68,.1);color:var(--red);}
+
+/* MRR Table */
+.mrr-bar-wrap{width:100px;background:var(--border);border-radius:3px;height:5px;display:inline-block;vertical-align:middle;}
+.mrr-bar{height:5px;border-radius:3px;background:var(--blue);}
+
+/* Toast */
+.toast-area{position:fixed;bottom:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px;}
+.toast{background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:12px 16px;font-size:13px;min-width:240px;box-shadow:0 4px 20px rgba(0,0,0,.4);animation:tin .3s ease;}
+.toast.ok{border-left:3px solid var(--green);}
+.toast.err{border-left:3px solid var(--red);}
+@keyframes tin{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* Tabs */
+.tabs{display:flex;gap:4px;margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:0;}
+.tab{padding:8px 16px;font-size:13px;font-weight:500;color:var(--text-subtle);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;}
+.tab.active{color:var(--blue);border-bottom-color:var(--blue);}
+.tab-pane{display:none;}
+.tab-pane.active{display:block;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- Sidebar -->
+<aside class="sidebar">
+  <div class="logo"><span>Somo</span>Shield</div>
+  <a class="nav-link" href="/">Dashboard</a>
+  <a class="nav-link" href="/agents">Agents</a>
+  <a class="nav-link" href="/alerts">Alerts</a>
+  <a class="nav-link" href="/backups">Backups</a>
+  <a class="nav-link" href="/clients">Clients</a>
+  <a class="nav-link active" href="/billing">Billing</a>
+  <a class="nav-link" href="/tools">Tools</a>
+  <a class="nav-link" href="/ids">IDS</a>
+  <a class="nav-link" href="/logout" style="margin-top:auto;color:var(--red);">Sign Out</a>
+</aside>
+
+<!-- Main -->
+<main class="main">
+  <div class="page-header">
+    <div>
+      <div class="page-title">Billing &amp; Time Tracking</div>
+      <div class="page-subtitle">Replaces SuperOps billing — log time, track MRR, generate invoices</div>
+    </div>
+    <button class="btn btn-primary" onclick="showTab('time')">+ Log Time</button>
+  </div>
+
+  <!-- MRR Summary Cards -->
+  <div class="cards" id="mrr-cards">
+    <div class="card"><div class="card-label">Monthly Recurring</div><div class="card-val green" id="total-mrr">--</div></div>
+    <div class="card"><div class="card-label">Annual Run Rate</div><div class="card-val blue" id="total-arr">--</div></div>
+    <div class="card"><div class="card-label">Unbilled Time</div><div class="card-val amber" id="total-unbilled">--</div></div>
+    <div class="card"><div class="card-label">Active Clients</div><div class="card-val" id="total-clients">--</div></div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <div class="tab active" onclick="showTab('mrr')">MRR Overview</div>
+    <div class="tab" onclick="showTab('time')">Log Time</div>
+    <div class="tab" onclick="showTab('entries')">Time Entries</div>
+    <div class="tab" onclick="showTab('invoices')">Invoices</div>
+    <div class="tab" onclick="showTab('rates')">Client Rates</div>
+  </div>
+
+  <!-- MRR Tab -->
+  <div class="tab-pane active" id="tab-mrr">
+    <div class="panel">
+      <div class="panel-head">Client MRR Breakdown
+        <button class="btn btn-ghost btn-sm" onclick="loadMrr()">Refresh</button>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        <table class="tbl">
+          <thead><tr>
+            <th>Client</th><th>Monthly Fee</th><th>Seats</th><th>Per Seat</th><th>MRR</th><th>Unbilled</th><th>Hourly Rate</th><th></th>
+          </tr></thead>
+          <tbody id="mrr-table-body"><tr><td colspan="8" style="text-align:center;color:var(--text-subtle);padding:20px;">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Log Time Tab -->
+  <div class="tab-pane" id="tab-time">
+    <div class="panel" style="max-width:600px;">
+      <div class="panel-head">Log Time Entry</div>
+      <div class="panel-body">
+        <div class="form-row">
+          <div>
+            <label>Client</label>
+            <select id="te-client"><option value="">Select client...</option></select>
+          </div>
+          <div>
+            <label>Date</label>
+            <input type="date" id="te-date">
+          </div>
+        </div>
+        <div style="margin-bottom:10px;">
+          <label>Description (what did you do?)</label>
+          <input type="text" id="te-desc" placeholder="e.g. Resolved printer issue, deployed updates, monthly check-in">
+        </div>
+        <div class="form-row three">
+          <div>
+            <label>Hours</label>
+            <input type="number" id="te-hours" step="0.25" min="0.25" placeholder="1.0">
+          </div>
+          <div>
+            <label>Rate ($/hr)</label>
+            <input type="number" id="te-rate" step="1" placeholder="125">
+          </div>
+          <div>
+            <label>Billable?</label>
+            <select id="te-billable">
+              <option value="1">Yes — Bill Client</option>
+              <option value="0">No — Internal</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-top:6px;padding:10px;background:var(--surface2);border-radius:6px;font-size:12px;color:var(--text-subtle);">
+          Total: <span id="te-preview" style="color:var(--green);font-weight:600;">$0.00</span>
+        </div>
+        <div style="margin-top:12px;">
+          <button class="btn btn-primary" onclick="logTime()">Log Time</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Time Entries Tab -->
+  <div class="tab-pane" id="tab-entries">
+    <div class="panel">
+      <div class="panel-head">
+        Time Entries
+        <div style="display:flex;gap:8px;align-items:center;">
+          <select id="filter-client" style="width:140px;padding:4px 8px;font-size:12px;" onchange="loadEntries()">
+            <option value="">All clients</option>
+          </select>
+          <select id="filter-invoiced" style="width:130px;padding:4px 8px;font-size:12px;" onchange="loadEntries()">
+            <option value="">All entries</option>
+            <option value="0">Unbilled only</option>
+            <option value="1">Invoiced only</option>
+          </select>
+        </div>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        <table class="tbl">
+          <thead><tr><th>Date</th><th>Client</th><th>Description</th><th>Hours</th><th>Rate</th><th>Total</th><th>Status</th><th></th></tr></thead>
+          <tbody id="entries-body"><tr><td colspan="8" style="text-align:center;color:var(--text-subtle);padding:20px;">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Invoices Tab -->
+  <div class="tab-pane" id="tab-invoices">
+    <div class="panel">
+      <div class="panel-head">
+        Invoices
+        <button class="btn btn-primary btn-sm" onclick="openCreateInvoice()">Generate Invoice</button>
+      </div>
+      <div class="panel-body" style="padding:0;">
+        <table class="tbl">
+          <thead><tr><th>Invoice #</th><th>Client</th><th>Issued</th><th>Subtotal</th><th>Total</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="invoices-body"><tr><td colspan="7" style="text-align:center;color:var(--text-subtle);padding:20px;">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Create Invoice Modal Area -->
+    <div id="invoice-create-form" style="display:none;margin-top:16px;">
+      <div class="panel" style="max-width:480px;">
+        <div class="panel-head">Generate Invoice from Unbilled Time</div>
+        <div class="panel-body">
+          <div class="form-row">
+            <div>
+              <label>Client</label>
+              <select id="inv-client"><option value="">Select client...</option></select>
+            </div>
+            <div>
+              <label>Tax Rate %</label>
+              <input type="number" id="inv-tax" value="0" step="0.1" min="0">
+            </div>
+          </div>
+          <div style="margin-bottom:10px;">
+            <label>Notes (optional)</label>
+            <textarea id="inv-notes" placeholder="Payment terms, thank you message..."></textarea>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-primary" onclick="createInvoice()">Generate PDF Invoice</button>
+            <button class="btn btn-ghost" onclick="document.getElementById('invoice-create-form').style.display='none'">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Client Rates Tab -->
+  <div class="tab-pane" id="tab-rates">
+    <div class="panels">
+      <div class="panel">
+        <div class="panel-head">Set Client Rates</div>
+        <div class="panel-body">
+          <div style="margin-bottom:10px;">
+            <label>Client Name</label>
+            <select id="rate-client"><option value="">Select client...</option></select>
+          </div>
+          <div class="form-row">
+            <div>
+              <label>Hourly Rate ($/hr)</label>
+              <input type="number" id="rate-hourly" value="125" step="5">
+            </div>
+            <div>
+              <label>Monthly Flat Fee ($)</label>
+              <input type="number" id="rate-monthly" value="0" step="25">
+            </div>
+          </div>
+          <div class="form-row">
+            <div>
+              <label>Per Seat/Device ($/mo)</label>
+              <input type="number" id="rate-seat" value="0" step="5">
+            </div>
+            <div>
+              <label>Notes</label>
+              <input type="text" id="rate-notes" placeholder="e.g. includes 4hr response">
+            </div>
+          </div>
+          <button class="btn btn-primary" style="margin-top:6px;" onclick="saveRate()">Save Rates</button>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head">Current Rates</div>
+        <div class="panel-body" style="padding:0;">
+          <table class="tbl">
+            <thead><tr><th>Client</th><th>Hourly</th><th>Monthly</th><th>Per Seat</th></tr></thead>
+            <tbody id="rates-body"><tr><td colspan="4" style="text-align:center;color:var(--text-subtle);padding:20px;">Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+</div>
+
+<!-- Toast container -->
+<div class="toast-area" id="toast-area"></div>
+
+<script>
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function toast(msg,type='ok'){
+  var el=document.createElement('div');
+  el.className='toast '+(type==='err'?'err':'ok');
+  el.textContent=msg;
+  document.getElementById('toast-area').appendChild(el);
+  setTimeout(function(){el.remove();},4000);
+}
+function fmt(n){return '$'+parseFloat(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});}
+
+// ── Tabs ─────────────────────────────────────────────────────────────────────
+var _activeTab='mrr';
+function showTab(name){
+  document.querySelectorAll('.tab').forEach(function(t,i){
+    var tabs=['mrr','time','entries','invoices','rates'];
+    t.classList.toggle('active',tabs[i]===name);
+  });
+  document.querySelectorAll('.tab-pane').forEach(function(p){
+    p.classList.toggle('active',p.id==='tab-'+name);
+  });
+  _activeTab=name;
+  if(name==='mrr')loadMrr();
+  if(name==='entries')loadEntries();
+  if(name==='invoices')loadInvoices();
+  if(name==='rates')loadRates();
+}
+
+// ── Load clients into selects ─────────────────────────────────────────────────
+function loadClientsIntoSelects(){
+  fetch('/api/billing/rates').then(r=>r.json()).then(function(rates){
+    var clients=rates.map(r=>r.client);
+    // Also load from billing mrr to get all clients
+    fetch('/api/billing/mrr').then(r=>r.json()).then(function(d){
+      d.clients.forEach(function(c){if(!clients.includes(c.client))clients.push(c.client);});
+      clients.sort();
+      var selects=['te-client','filter-client','inv-client','rate-client'];
+      selects.forEach(function(id){
+        var sel=document.getElementById(id);
+        if(!sel)return;
+        var cur=sel.value;
+        // keep first option
+        while(sel.options.length>1)sel.remove(1);
+        clients.forEach(function(c){
+          var o=document.createElement('option');
+          o.value=o.textContent=c;
+          sel.appendChild(o);
+        });
+        if(cur)sel.value=cur;
+      });
+    });
+    // Also populate filter-client in entries tab
+    var fc=document.getElementById('filter-client');
+    if(fc){
+      while(fc.options.length>1)fc.remove(1);
+      clients.forEach(function(c){
+        var o=document.createElement('option');
+        o.value=o.textContent=c;
+        fc.appendChild(o);
+      });
+    }
+  });
+}
+
+// Pre-fill rate when client changes on time entry form
+document.getElementById('te-client').addEventListener('change',function(){
+  var client=this.value;
+  if(!client)return;
+  fetch('/api/billing/rates').then(r=>r.json()).then(function(rates){
+    var r=rates.find(x=>x.client===client);
+    if(r)document.getElementById('te-rate').value=r.hourly_rate;
+    calcPreview();
+  });
+});
+
+document.getElementById('te-hours').addEventListener('input',calcPreview);
+document.getElementById('te-rate').addEventListener('input',calcPreview);
+function calcPreview(){
+  var h=parseFloat(document.getElementById('te-hours').value)||0;
+  var r=parseFloat(document.getElementById('te-rate').value)||0;
+  document.getElementById('te-preview').textContent=fmt(h*r);
+}
+
+// Set default date to today
+document.getElementById('te-date').value=new Date().toISOString().split('T')[0];
+
+// ── MRR ──────────────────────────────────────────────────────────────────────
+function loadMrr(){
+  fetch('/api/billing/mrr').then(r=>r.json()).then(function(d){
+    document.getElementById('total-mrr').textContent=fmt(d.total_mrr);
+    document.getElementById('total-arr').textContent=fmt(d.total_mrr*12);
+    var unbilled=d.clients.reduce(function(s,c){return s+c.unbilled;},0);
+    document.getElementById('total-unbilled').textContent=fmt(unbilled);
+    document.getElementById('total-clients').textContent=d.clients.length;
+
+    var maxMrr=Math.max(...d.clients.map(c=>c.mrr),1);
+    var tbody=document.getElementById('mrr-table-body');
+    if(!d.clients.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--text-subtle);padding:20px;">No clients yet — add rates in the Client Rates tab</td></tr>';return;}
+    tbody.innerHTML=d.clients.map(function(c){
+      var pct=Math.round(c.mrr/maxMrr*100);
+      return '<tr>'+
+        '<td><b>'+esc(c.client)+'</b></td>'+
+        '<td class="mono">'+fmt(c.monthly_fee)+'</td>'+
+        '<td class="mono">'+c.seat_count+'</td>'+
+        '<td class="mono">'+fmt(c.per_seat)+'/seat</td>'+
+        '<td><span style="color:var(--green);font-weight:600;">'+fmt(c.mrr)+'</span> '+
+          '<span class="mrr-bar-wrap"><span class="mrr-bar" style="width:'+pct+'%"></span></span></td>'+
+        '<td class="mono" style="color:var(--amber)">'+fmt(c.unbilled)+'</td>'+
+        '<td class="mono">'+fmt(c.hourly_rate)+'/hr</td>'+
+        '<td><button class="btn btn-ghost btn-sm" onclick="openCreateInvoice(\''+esc(c.client)+'\')">Invoice</button></td>'+
+      '</tr>';
+    }).join('');
+  });
+}
+
+// ── Time entry log ────────────────────────────────────────────────────────────
+function logTime(){
+  var client=document.getElementById('te-client').value;
+  var date=document.getElementById('te-date').value;
+  var desc=document.getElementById('te-desc').value.trim();
+  var hours=document.getElementById('te-hours').value;
+  var rate=document.getElementById('te-rate').value;
+  var billable=document.getElementById('te-billable').value;
+  if(!client||!date||!desc||!hours){toast('Fill in all fields','err');return;}
+  fetch('/api/billing/time',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({client,date,description:desc,hours:parseFloat(hours),
+                         rate:parseFloat(rate),billable:parseInt(billable)})})
+    .then(r=>r.json()).then(function(d){
+      if(d.ok){
+        toast('Logged '+hours+'h for '+client+' — '+fmt(d.total));
+        document.getElementById('te-desc').value='';
+        document.getElementById('te-hours').value='';
+        calcPreview();
+        loadMrr();
+        if(_activeTab==='entries')loadEntries();
+      }else toast(d.error||'Error','err');
+    });
+}
+
+// ── Entries ──────────────────────────────────────────────────────────────────
+function loadEntries(){
+  var client=document.getElementById('filter-client').value;
+  var invoiced=document.getElementById('filter-invoiced').value;
+  var url='/api/billing/time?';
+  if(client)url+='client='+encodeURIComponent(client)+'&';
+  if(invoiced!=='')url+='invoiced='+invoiced;
+  fetch(url).then(r=>r.json()).then(function(rows){
+    var tbody=document.getElementById('entries-body');
+    if(!rows.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--text-subtle);padding:20px;">No entries found</td></tr>';return;}
+    tbody.innerHTML=rows.map(function(e){
+      var total=fmt(e.hours*e.rate);
+      var statusBadge=e.invoiced
+        ? '<span class="badge badge-sent">Invoiced</span>'
+        : (e.billable?'<span class="badge" style="background:rgba(16,185,129,.1);color:var(--green);">Billable</span>'
+                     :'<span class="badge badge-draft">Internal</span>');
+      return '<tr>'+
+        '<td class="mono">'+esc(e.date)+'</td>'+
+        '<td><b>'+esc(e.client)+'</b></td>'+
+        '<td>'+esc(e.description)+'</td>'+
+        '<td class="mono">'+e.hours+'h</td>'+
+        '<td class="mono">'+fmt(e.rate)+'/hr</td>'+
+        '<td class="mono" style="color:var(--green);">'+total+'</td>'+
+        '<td>'+statusBadge+'</td>'+
+        '<td>'+(e.invoiced?'':'<button class="btn btn-red btn-sm" onclick="deleteEntry('+e.id+')">Del</button>')+'</td>'+
+      '</tr>';
+    }).join('');
+  });
+}
+
+function deleteEntry(id){
+  if(!confirm('Delete this time entry?'))return;
+  fetch('/api/billing/time/'+id,{method:'DELETE'}).then(r=>r.json()).then(function(d){
+    if(d.ok){toast('Entry deleted');loadEntries();loadMrr();}
+    else toast(d.error||'Error','err');
+  });
+}
+
+// ── Invoices ─────────────────────────────────────────────────────────────────
+function loadInvoices(){
+  fetch('/api/billing/invoices').then(r=>r.json()).then(function(rows){
+    var tbody=document.getElementById('invoices-body');
+    if(!rows.length){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--text-subtle);padding:20px;">No invoices yet</td></tr>';return;}
+    tbody.innerHTML=rows.map(function(inv){
+      var badge='<span class="badge badge-'+inv.status+'">'+inv.status+'</span>';
+      return '<tr>'+
+        '<td class="mono" style="color:var(--blue);">'+esc(inv.id)+'</td>'+
+        '<td><b>'+esc(inv.client)+'</b></td>'+
+        '<td class="mono">'+esc(inv.issued_date)+'</td>'+
+        '<td class="mono">'+fmt(inv.subtotal)+'</td>'+
+        '<td class="mono" style="font-weight:700;">'+fmt(inv.total)+'</td>'+
+        '<td>'+badge+'</td>'+
+        '<td style="display:flex;gap:4px;">'+
+          '<a class="btn btn-ghost btn-sm" href="/api/billing/invoices/'+encodeURIComponent(inv.id)+'/pdf" target="_blank">PDF</a>'+
+          (inv.status!=='paid'?'<button class="btn btn-green btn-sm" onclick="emailInvoice(\''+esc(inv.id)+'\',\''+esc(inv.client)+'\')">Email</button>':'')+
+          (inv.status!=='paid'?'<button class="btn btn-ghost btn-sm" onclick="markPaid(\''+esc(inv.id)+'\')">Mark Paid</button>':
+          '<span style="color:var(--green);font-size:11px;">✓ PAID</span>')+
+        '</td>'+
+      '</tr>';
+    }).join('');
+  });
+}
+
+function openCreateInvoice(client){
+  document.getElementById('invoice-create-form').style.display='block';
+  if(client)document.getElementById('inv-client').value=client;
+  showTab('invoices');
+  setTimeout(function(){document.getElementById('invoice-create-form').scrollIntoView({behavior:'smooth'});},100);
+}
+
+function createInvoice(){
+  var client=document.getElementById('inv-client').value;
+  var tax=document.getElementById('inv-tax').value;
+  var notes=document.getElementById('inv-notes').value;
+  if(!client){toast('Select a client','err');return;}
+  var btn=event.target;btn.disabled=true;btn.textContent='Generating...';
+  fetch('/api/billing/invoices',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({client,tax_rate:parseFloat(tax),notes})})
+    .then(r=>r.json()).then(function(d){
+      btn.disabled=false;btn.textContent='Generate PDF Invoice';
+      if(d.ok){
+        toast('Invoice '+d.invoice_id+' created — '+fmt(d.total));
+        document.getElementById('invoice-create-form').style.display='none';
+        showTab('invoices');
+        loadInvoices();loadMrr();
+      }else toast(d.error||'Error','err');
+    }).catch(function(){btn.disabled=false;btn.textContent='Generate PDF Invoice';toast('Request failed','err');});
+}
+
+function emailInvoice(invId, client){
+  var to=prompt('Send invoice to email:', SMTP_TO_DEFAULT||'');
+  if(to===null)return;
+  fetch('/api/billing/invoices/'+encodeURIComponent(invId)+'/email',
+    {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to})})
+    .then(r=>r.json()).then(function(d){
+      if(d.ok){toast('Invoice emailed to '+d.sent_to);loadInvoices();}
+      else toast(d.error||'Email failed','err');
+    });
+}
+
+function markPaid(invId){
+  if(!confirm('Mark invoice '+invId+' as PAID?'))return;
+  fetch('/api/billing/invoices/'+encodeURIComponent(invId)+'/status',
+    {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'paid'})})
+    .then(r=>r.json()).then(function(d){
+      if(d.ok){toast('Marked as paid');loadInvoices();}
+    });
+}
+
+// ── Rates ─────────────────────────────────────────────────────────────────────
+function loadRates(){
+  fetch('/api/billing/rates').then(r=>r.json()).then(function(rows){
+    var tbody=document.getElementById('rates-body');
+    if(!rows.length){tbody.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--text-subtle);padding:20px;">No rates set yet</td></tr>';return;}
+    tbody.innerHTML=rows.map(function(r){
+      return '<tr>'+
+        '<td><b>'+esc(r.client)+'</b>'+(r.notes?'<div style="font-size:10px;color:var(--text-subtle);">'+esc(r.notes)+'</div>':'')+'</td>'+
+        '<td class="mono">'+fmt(r.hourly_rate)+'/hr</td>'+
+        '<td class="mono">'+fmt(r.monthly_fee)+'/mo</td>'+
+        '<td class="mono">'+fmt(r.per_seat)+'/seat</td>'+
+      '</tr>';
+    }).join('');
+    // populate client selects
+    loadClientsIntoSelects();
+  });
+}
+
+function saveRate(){
+  var client=document.getElementById('rate-client').value.trim();
+  if(!client){toast('Select a client','err');return;}
+  fetch('/api/billing/rates',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      client,
+      hourly_rate:parseFloat(document.getElementById('rate-hourly').value)||125,
+      monthly_fee:parseFloat(document.getElementById('rate-monthly').value)||0,
+      per_seat:parseFloat(document.getElementById('rate-seat').value)||0,
+      notes:document.getElementById('rate-notes').value
+    })})
+    .then(r=>r.json()).then(function(d){
+      if(d.ok){toast('Rates saved for '+client);loadRates();loadMrr();}
+      else toast(d.error,'err');
+    });
+}
+
+// populate rate-client with custom entry too
+document.getElementById('rate-client').addEventListener('change',function(){
+  var client=this.value;
+  if(!client)return;
+  fetch('/api/billing/rates').then(r=>r.json()).then(function(rates){
+    var r=rates.find(x=>x.client===client);
+    if(r){
+      document.getElementById('rate-hourly').value=r.hourly_rate;
+      document.getElementById('rate-monthly').value=r.monthly_fee;
+      document.getElementById('rate-seat').value=r.per_seat;
+      document.getElementById('rate-notes').value=r.notes||'';
+    }
+  });
+});
+
+// expose SMTP_TO for email prompt
+var SMTP_TO_DEFAULT='helpdesk@somotechs.com';
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+loadMrr();
+loadClientsIntoSelects();
+</script>
+</body>
+</html>

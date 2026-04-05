@@ -9,3 +9,4 @@ qrcode[pil]==7.4.2
 anthropic>=0.40.0
 cryptography>=42.0.0
 websockets>=12.0
+reportlab>=4.0.0

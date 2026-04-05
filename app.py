@@ -330,7 +330,244 @@ def init_db():
             conn.commit()
         except:
             pass
+    # ── Billing / PSA tables ──────────────────────────────────────────────────
+    conn.execute('''CREATE TABLE IF NOT EXISTS client_rates (
+        client      TEXT PRIMARY KEY,
+        hourly_rate REAL DEFAULT 125.0,
+        monthly_fee REAL DEFAULT 0.0,
+        per_seat    REAL DEFAULT 0.0,
+        currency    TEXT DEFAULT "USD",
+        notes       TEXT DEFAULT ""
+    )''')
+    conn.execute('''CREATE TABLE IF NOT EXISTS time_entries (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        client      TEXT NOT NULL,
+        date        TEXT NOT NULL,
+        description TEXT NOT NULL,
+        hours       REAL NOT NULL,
+        rate        REAL NOT NULL,
+        billable    INTEGER DEFAULT 1,
+        invoiced    INTEGER DEFAULT 0,
+        invoice_id  TEXT DEFAULT "",
+        created_at  TEXT DEFAULT CURRENT_TIMESTAMP
+    )''')
+    conn.execute('''CREATE TABLE IF NOT EXISTS invoices (
+        id          TEXT PRIMARY KEY,
+        client      TEXT NOT NULL,
+        issued_date TEXT NOT NULL,
+        due_date    TEXT NOT NULL,
+        subtotal    REAL NOT NULL,
+        tax_rate    REAL DEFAULT 0.0,
+        total       REAL NOT NULL,
+        status      TEXT DEFAULT "draft",
+        notes       TEXT DEFAULT "",
+        pdf_path    TEXT DEFAULT "",
+        emailed_at  TEXT DEFAULT "",
+        created_at  TEXT DEFAULT CURRENT_TIMESTAMP
+    )''')
+    # ── Client Email Automation tables ────────────────────────────────────────
+    conn.execute('''CREATE TABLE IF NOT EXISTS client_contacts (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        client      TEXT NOT NULL,
+        name        TEXT NOT NULL,
+        email       TEXT NOT NULL UNIQUE,
+        subscribed  INTEGER DEFAULT 1,
+        created_at  TEXT DEFAULT CURRENT_TIMESTAMP
+    )''')
+    conn.execute('''CREATE TABLE IF NOT EXISTS email_templates (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        name        TEXT NOT NULL,
+        subject     TEXT NOT NULL,
+        body_html   TEXT NOT NULL,
+        body_text   TEXT NOT NULL,
+        category    TEXT DEFAULT "general",
+        created_at  TEXT DEFAULT CURRENT_TIMESTAMP
+    )''')
+    conn.execute('''CREATE TABLE IF NOT EXISTS email_sequences (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        name        TEXT NOT NULL,
+        description TEXT DEFAULT "",
+        active      INTEGER DEFAULT 1,
+        created_at  TEXT DEFAULT CURRENT_TIMESTAMP
+    )''')
+    conn.execute('''CREATE TABLE IF NOT EXISTS email_sequence_steps (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        sequence_id INTEGER NOT NULL,
+        step_order  INTEGER NOT NULL,
+        delay_days  INTEGER DEFAULT 0,
+        template_id INTEGER NOT NULL,
+        subject_override TEXT DEFAULT ""
+    )''')
+    conn.execute('''CREATE TABLE IF NOT EXISTS email_queue (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        contact_id   INTEGER NOT NULL,
+        template_id  INTEGER NOT NULL,
+        subject      TEXT NOT NULL,
+        scheduled_at TEXT NOT NULL,
+        sent_at      TEXT DEFAULT "",
+        status       TEXT DEFAULT "pending",
+        sequence_id  INTEGER DEFAULT 0,
+        step_id      INTEGER DEFAULT 0
+    )''')
+    conn.execute('''CREATE TABLE IF NOT EXISTS email_log (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        contact_id  INTEGER NOT NULL,
+        email       TEXT NOT NULL,
+        subject     TEXT NOT NULL,
+        sent_at     TEXT DEFAULT CURRENT_TIMESTAMP,
+        status      TEXT DEFAULT "sent",
+        error       TEXT DEFAULT ""
+    )''')
+    conn.commit()
+    # Seed default templates if empty
+    count = conn.execute('SELECT COUNT(*) FROM email_templates').fetchone()[0]
+    if count == 0:
+        _seed_email_templates(conn)
     conn.close()
+
+def _seed_email_templates(conn):
+    templates = [
+        ("Welcome to Somo Technologies", "Welcome to Somo Technologies — We've Got You Covered",
+         """<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1f2937;">
+<div style="background:#1D6FFF;padding:24px;border-radius:8px 8px 0 0;">
+  <h1 style="color:white;margin:0;font-size:22px;">Welcome to Somo Technologies</h1>
+  <p style="color:#bfdbfe;margin:6px 0 0;">Your IT security is in good hands.</p>
+</div>
+<div style="background:#f9fafb;padding:24px;border-radius:0 0 8px 8px;border:1px solid #e5e7eb;">
+  <p>Hi {contact_name},</p>
+  <p>Welcome aboard! I'm Anthony from Somo Technologies. I'm your dedicated IT partner and I take that seriously — especially when it comes to keeping your business safe.</p>
+  <p>Here's what's running in the background protecting you right now:</p>
+  <ul>
+    <li>🛡️ <b>24/7 threat monitoring</b> — we watch for attacks so you don't have to</li>
+    <li>💾 <b>Automated backups</b> — your data is protected and recoverable</li>
+    <li>🔒 <b>Endpoint security</b> — every device is monitored for threats</li>
+    <li>🚨 <b>Intrusion detection</b> — we block malicious IPs before they reach you</li>
+  </ul>
+  <p>You'll hear from me regularly with updates on your security posture. If you ever have questions or anything feels off — just reply to this email.</p>
+  <p style="margin-top:24px;">— Anthony Gormley<br><b>Somo Technologies LLC</b><br>(417) 390-5129 | anthony@somotechs.com</p>
+</div></div>""",
+         "Hi {contact_name},\n\nWelcome to Somo Technologies! I'm Anthony, your dedicated IT partner.\n\nHere's what's protecting you right now:\n- 24/7 threat monitoring\n- Automated backups\n- Endpoint security\n- Intrusion detection\n\nQuestions? Just reply.\n\n— Anthony Gormley\nSomo Technologies LLC\n(417) 390-5129", "onboarding"),
+
+        ("Security Tip: Strong Passwords", "⚠️ The #1 Way Hackers Get In — And How to Stop Them",
+         """<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1f2937;">
+<div style="background:#dc2626;padding:24px;border-radius:8px 8px 0 0;">
+  <h1 style="color:white;margin:0;font-size:20px;">⚠️ Security Alert: Password Safety</h1>
+</div>
+<div style="background:#f9fafb;padding:24px;border-radius:0 0 8px 8px;border:1px solid #e5e7eb;">
+  <p>Hi {contact_name},</p>
+  <p>Did you know that <b>81% of data breaches</b> are caused by weak or stolen passwords? It's the #1 way attackers get into business systems — and it's 100% preventable.</p>
+  <h3 style="color:#dc2626;">What a good password looks like:</h3>
+  <ul>
+    <li>At least <b>14 characters</b></li>
+    <li>Mix of letters, numbers, symbols</li>
+    <li><b>Never reused</b> across sites</li>
+    <li>Not your name, birthday, or company name</li>
+  </ul>
+  <h3 style="color:#1D6FFF;">Our recommendation: Use a Password Manager</h3>
+  <p>Bitwarden (free), 1Password, or Dashlane. One strong master password, everything else is auto-generated and unique. We can help you set this up for your whole team.</p>
+  <p style="background:#fef3c7;padding:12px;border-radius:6px;border-left:3px solid #f59e0b;"><b>Quick action:</b> If you're reusing any password, change it today. Reply to this email and I'll help you get set up with a password manager — no charge.</p>
+  <p style="margin-top:24px;">— Anthony<br><b>Somo Technologies LLC</b></p>
+</div></div>""",
+         "Hi {contact_name},\n\n81% of breaches come from weak or reused passwords.\n\nWhat makes a good password:\n- 14+ characters\n- Mix of letters, numbers, symbols  \n- Never reused\n\nOur recommendation: Use Bitwarden (free password manager). I can help you set it up — just reply.\n\n— Anthony\nSomo Technologies LLC", "security_tip"),
+
+        ("Security Tip: Phishing Awareness", "🎣 How to Spot a Phishing Email Before It's Too Late",
+         """<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1f2937;">
+<div style="background:#7c3aed;padding:24px;border-radius:8px 8px 0 0;">
+  <h1 style="color:white;margin:0;font-size:20px;">🎣 Phishing: The Trap Most People Fall For</h1>
+</div>
+<div style="background:#f9fafb;padding:24px;border-radius:0 0 8px 8px;border:1px solid #e5e7eb;">
+  <p>Hi {contact_name},</p>
+  <p>Phishing emails are the #1 way ransomware gets deployed. They look real. They're designed to trick even smart people. Here's how to spot them:</p>
+  <h3>🚩 Red flags in any email:</h3>
+  <ul>
+    <li><b>Urgency:</b> "Act now or your account will be closed!"</li>
+    <li><b>Weird sender:</b> support@amaz0n-security.net (not amazon.com)</li>
+    <li><b>Hover before you click:</b> the link URL doesn't match what it says</li>
+    <li><b>Attachments you didn't expect</b> — even from people you know</li>
+    <li><b>Requests for passwords or wire transfers</b> — never legitimate</li>
+  </ul>
+  <p style="background:#fef2f2;padding:12px;border-radius:6px;border-left:3px solid #dc2626;"><b>Rule of thumb:</b> When in doubt, don't click. Pick up the phone and call the sender directly using a number you already know.</p>
+  <p>Forward any suspicious emails to me before you click anything — I'll check it for free.</p>
+  <p style="margin-top:24px;">— Anthony<br><b>Somo Technologies LLC</b></p>
+</div></div>""",
+         "Hi {contact_name},\n\nPhishing emails are the #1 way ransomware gets in.\n\nRed flags:\n- Urgency (act now!)\n- Weird sender addresses\n- Links that don't match what they say\n- Unexpected attachments\n- Requests for passwords or wire transfers\n\nRule: When in doubt, don't click. Call me first.\n\n— Anthony\nSomo Technologies LLC", "security_tip"),
+
+        ("Monthly Security Summary", "📊 Your {month} Security Report — {client}",
+         """<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1f2937;">
+<div style="background:#0f172a;padding:24px;border-radius:8px 8px 0 0;">
+  <h1 style="color:white;margin:0;font-size:20px;">📊 Monthly Security Report</h1>
+  <p style="color:#94a3b8;margin:4px 0 0;">{month} — {client}</p>
+</div>
+<div style="background:#f9fafb;padding:24px;border-radius:0 0 8px 8px;border:1px solid #e5e7eb;">
+  <p>Hi {contact_name},</p>
+  <p>Here's what Somo Technologies monitored and blocked for your business last month:</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0;">
+    <div style="background:white;padding:16px;border-radius:6px;border:1px solid #e5e7eb;text-align:center;">
+      <div style="font-size:28px;font-weight:700;color:#1D6FFF;">{threats_blocked}</div>
+      <div style="font-size:12px;color:#6b7280;">Threats Blocked</div>
+    </div>
+    <div style="background:white;padding:16px;border-radius:6px;border:1px solid #e5e7eb;text-align:center;">
+      <div style="font-size:28px;font-weight:700;color:#10b981;">{backups_ok}</div>
+      <div style="font-size:12px;color:#6b7280;">Backups Completed</div>
+    </div>
+  </div>
+  <p>Your systems remained secure throughout the month. All endpoints checked in as healthy and backups completed successfully.</p>
+  <p>Questions about your security posture? Just reply — I'm always available.</p>
+  <p style="margin-top:24px;">— Anthony<br><b>Somo Technologies LLC</b><br>(417) 390-5129</p>
+</div></div>""",
+         "Hi {contact_name},\n\nYour {month} security report for {client}:\n\n- Threats blocked: {threats_blocked}\n- Backups completed: {backups_ok}\n\nAll systems healthy. Questions? Just reply.\n\n— Anthony\nSomo Technologies LLC", "monthly"),
+
+        ("Security Tip: Backup Strategy", "💾 What Happens to Your Business if Your Computer Dies Tomorrow?",
+         """<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1f2937;">
+<div style="background:#059669;padding:24px;border-radius:8px 8px 0 0;">
+  <h1 style="color:white;margin:0;font-size:20px;">💾 Your Business Data: Are You Protected?</h1>
+</div>
+<div style="background:#f9fafb;padding:24px;border-radius:0 0 8px 8px;border:1px solid #e5e7eb;">
+  <p>Hi {contact_name},</p>
+  <p>60% of small businesses that suffer a major data loss <b>shut down within 6 months</b>. Hard drives fail. Ransomware encrypts files. Laptops get stolen.</p>
+  <p>The question isn't IF something will happen — it's WHEN. And when it does, the only thing standing between you and catastrophe is your backup.</p>
+  <h3 style="color:#059669;">The 3-2-1 Backup Rule:</h3>
+  <ul>
+    <li><b>3</b> copies of your data</li>
+    <li><b>2</b> different storage types (local + cloud)</li>
+    <li><b>1</b> offsite copy (so a fire/flood doesn't wipe everything)</li>
+  </ul>
+  <p style="background:#ecfdf5;padding:12px;border-radius:6px;border-left:3px solid #059669;"><b>Good news:</b> We already have automated backups running for your systems. Want a report of your last backup status? Reply and I'll send it over.</p>
+  <p style="margin-top:24px;">— Anthony<br><b>Somo Technologies LLC</b></p>
+</div></div>""",
+         "Hi {contact_name},\n\n60% of businesses that lose data shut down within 6 months.\n\nThe 3-2-1 backup rule:\n- 3 copies of data\n- 2 different storage types\n- 1 offsite\n\nWe have automated backups running for you. Want a status report? Just reply.\n\n— Anthony\nSomo Technologies LLC", "security_tip"),
+
+        ("Security Tip: Multi-Factor Authentication", "🔐 One Simple Step That Blocks 99% of Account Hacks",
+         """<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1f2937;">
+<div style="background:#1D6FFF;padding:24px;border-radius:8px 8px 0 0;">
+  <h1 style="color:white;margin:0;font-size:20px;">🔐 Turn On This Setting Right Now</h1>
+</div>
+<div style="background:#f9fafb;padding:24px;border-radius:0 0 8px 8px;border:1px solid #e5e7eb;">
+  <p>Hi {contact_name},</p>
+  <p>Microsoft says that enabling Multi-Factor Authentication (MFA) blocks <b>99.9% of automated account attacks</b>. That's not a typo.</p>
+  <p>MFA means even if someone steals your password, they still can't get in without your phone.</p>
+  <h3>Enable it on these first:</h3>
+  <ol>
+    <li><b>Email</b> (Microsoft 365 / Gmail) — most critical</li>
+    <li><b>Banking</b> — non-negotiable</li>
+    <li><b>Any cloud software</b> your business uses</li>
+    <li><b>Social media</b> accounts</li>
+  </ol>
+  <p>Use Microsoft Authenticator or Google Authenticator (free apps).</p>
+  <p style="background:#eff6ff;padding:12px;border-radius:6px;border-left:3px solid #1D6FFF;"><b>We can enable this for your whole team remotely.</b> Reply and we'll schedule a 15-minute setup — at no charge for existing clients.</p>
+  <p style="margin-top:24px;">— Anthony<br><b>Somo Technologies LLC</b></p>
+</div></div>""",
+         "Hi {contact_name},\n\nMFA blocks 99.9% of automated account attacks.\n\nTurn it on for:\n1. Email (Microsoft 365/Gmail)\n2. Banking\n3. Any cloud software\n4. Social media\n\nUse Microsoft Authenticator (free). We can set this up for your whole team remotely — reply to schedule.\n\n— Anthony\nSomo Technologies LLC", "security_tip"),
+    ]
+    conn.executemany(
+        'INSERT INTO email_templates (name,subject,body_html,body_text,category) VALUES (?,?,?,?,?)',
+        templates)
+    # Create default welcome sequence
+    conn.execute("INSERT INTO email_sequences (id,name,description) VALUES (1,'Welcome Sequence','Automatic sequence for new clients')")
+    # Steps: welcome day 0, password tip day 3, phishing day 7, backup day 14, MFA day 21
+    steps = [(1,1,0,1,''),(1,2,3,2,''),(1,3,7,3,''),(1,4,14,5,''),(1,5,21,6,'')]
+    conn.executemany('INSERT INTO email_sequence_steps (sequence_id,step_order,delay_days,template_id,subject_override) VALUES (?,?,?,?,?)', steps)
+    conn.commit()
 
 init_db()
 
@@ -372,6 +609,37 @@ SMTP_TO    = os.environ.get('SMTP_TO',   'helpdesk@somotechs.com')
 # Install ntfy app (iOS/Android), subscribe to your topic, done.
 NTFY_URL   = os.environ.get('NTFY_URL',   'https://ntfy.sh')
 NTFY_TOPIC = os.environ.get('NTFY_TOPIC', '')  # e.g. somotechs-soc-abc123
+
+def _send_email_notify(subject, body, attach_path=None):
+    """Send a notification email to SMTP_TO. Non-blocking — runs in background thread."""
+    if not SMTP_HOST:
+        return
+    import threading, smtplib, ssl
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText as _MIMEText
+    def _send():
+        try:
+            msg = MIMEMultipart()
+            msg['Subject'] = subject
+            msg['From']    = SMTP_FROM
+            msg['To']      = SMTP_TO
+            msg.attach(_MIMEText(body, 'plain'))
+            ctx = ssl.create_default_context()
+            with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as s:
+                s.starttls(context=ctx)
+                if SMTP_USER and SMTP_PASS:
+                    s.login(SMTP_USER, SMTP_PASS)
+                s.sendmail(SMTP_FROM, SMTP_TO, msg.as_string())
+        except Exception as e:
+            app.logger.warning(f'Email notify failed: {e}')
+    threading.Thread(target=_send, daemon=True).start()
+
+def _notify_login(ip):
+    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')
+    _send_email_notify(
+        f'🔑 SOC Login — {ip} at {now}',
+        f'Successful login to SomoShield SOC Dashboard.\n\nIP: {ip}\nTime: {now}\n\nIf this was not you, change your password immediately.\n\n-- Somo Technologies SOC'
+    )
 
 # ─── CrowdSec geo cache ────────────────────────────────────────────────────────
 _crowdsec_geo_cache = {'points': None, 'ts': 0}
@@ -616,6 +884,7 @@ def mfa_verify():
         if secret and pyotp.TOTP(secret).verify(code, valid_window=2):
             session.pop('mfa_pending', None)
             session['logged_in'] = True
+            _notify_login(ip)
             return redirect(url_for('index'))
         error = 'Invalid code — try again'
     return render_template('mfa.html', error=error)
@@ -6055,6 +6324,679 @@ def api_mesh_groups_create():
 import threading as _threading
 _monitor_thread = _threading.Thread(target=_alert_monitor_loop, daemon=True)
 _monitor_thread.start()
+
+# ── USB Backup Status ─────────────────────────────────────────────────────────
+USB_STATUS_FILE = '/tmp/usb-backup-status.json'
+
+@app.route('/api/usb/status')
+@login_required
+def api_usb_status():
+    try:
+        if os.path.exists(USB_STATUS_FILE):
+            with open(USB_STATUS_FILE) as f:
+                return jsonify(json.load(f))
+    except Exception:
+        pass
+    return jsonify({'state': 'idle'})
+
+@app.route('/api/usb/clear', methods=['POST'])
+@login_required
+def api_usb_clear():
+    try:
+        os.remove(USB_STATUS_FILE)
+    except Exception:
+        pass
+    return jsonify({'ok': True})
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# BILLING / PSA MODULE
+# Replaces SuperOps billing — time tracking, MRR, invoice PDF, email
+# Copyright (c) 2024-2026 Somo Technologies LLC
+# ═══════════════════════════════════════════════════════════════════════════════
+
+import io, smtplib, ssl
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
+from email import encoders
+
+INVOICE_DIR = os.path.join(os.path.dirname(__file__), 'secrets', 'invoices')
+os.makedirs(INVOICE_DIR, exist_ok=True)
+
+COMPANY_NAME    = os.environ.get('COMPANY_NAME',  'Somo Technologies LLC')
+COMPANY_ADDR    = os.environ.get('COMPANY_ADDR',  'Missouri, MO')
+COMPANY_EMAIL   = os.environ.get('COMPANY_EMAIL', 'anthony@somotechs.com')
+COMPANY_PHONE   = os.environ.get('COMPANY_PHONE', '(417) 390-5129')
+COMPANY_WEBSITE = os.environ.get('COMPANY_WEBSITE','somotechs.com')
+
+@app.route('/billing')
+@login_required
+def billing_page():
+    return render_template('billing.html')
+
+# ── Client rates ──────────────────────────────────────────────────────────────
+
+@app.route('/api/billing/rates', methods=['GET'])
+@login_required
+def billing_rates_get():
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute('SELECT * FROM client_rates ORDER BY client').fetchall()
+    return jsonify([dict(r) for r in rows])
+
+@app.route('/api/billing/rates', methods=['POST'])
+@login_required
+def billing_rates_set():
+    d = request.get_json(force=True)
+    client = d.get('client','').strip()
+    if not client:
+        return jsonify({'ok': False, 'error': 'client required'}), 400
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute('''INSERT INTO client_rates (client,hourly_rate,monthly_fee,per_seat,notes)
+                        VALUES (?,?,?,?,?)
+                        ON CONFLICT(client) DO UPDATE SET
+                          hourly_rate=excluded.hourly_rate,
+                          monthly_fee=excluded.monthly_fee,
+                          per_seat=excluded.per_seat,
+                          notes=excluded.notes''',
+                     (client, d.get('hourly_rate',125), d.get('monthly_fee',0),
+                      d.get('per_seat',0), d.get('notes','')))
+        conn.commit()
+    return jsonify({'ok': True})
+
+# ── Time entries ──────────────────────────────────────────────────────────────
+
+@app.route('/api/billing/time', methods=['GET'])
+@login_required
+def billing_time_get():
+    client  = request.args.get('client','')
+    invoiced = request.args.get('invoiced', '')   # '0' = unbilled only
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        q = 'SELECT * FROM time_entries WHERE 1=1'
+        params = []
+        if client:
+            q += ' AND client=?'; params.append(client)
+        if invoiced != '':
+            q += ' AND invoiced=?'; params.append(int(invoiced))
+        q += ' ORDER BY date DESC, id DESC'
+        rows = conn.execute(q, params).fetchall()
+    return jsonify([dict(r) for r in rows])
+
+@app.route('/api/billing/time', methods=['POST'])
+@login_required
+def billing_time_add():
+    d = request.get_json(force=True)
+    required = ['client','date','description','hours']
+    if not all(d.get(k) for k in required):
+        return jsonify({'ok': False, 'error': 'client, date, description, hours required'}), 400
+    # Look up rate for client
+    with sqlite3.connect(DB_PATH) as conn:
+        rate_row = conn.execute('SELECT hourly_rate FROM client_rates WHERE client=?',
+                                (d['client'],)).fetchone()
+        rate = d.get('rate', rate_row[0] if rate_row else 125.0)
+        cur = conn.execute('''INSERT INTO time_entries
+                              (client,date,description,hours,rate,billable)
+                              VALUES (?,?,?,?,?,?)''',
+                           (d['client'], d['date'], d['description'],
+                            float(d['hours']), float(rate), int(d.get('billable',1))))
+        conn.commit()
+        return jsonify({'ok': True, 'id': cur.lastrowid, 'rate': rate,
+                        'total': round(float(d['hours']) * float(rate), 2)})
+
+@app.route('/api/billing/time/<int:entry_id>', methods=['DELETE'])
+@login_required
+def billing_time_delete(entry_id):
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute('DELETE FROM time_entries WHERE id=? AND invoiced=0', (entry_id,))
+        conn.commit()
+    return jsonify({'ok': True})
+
+# ── MRR summary ───────────────────────────────────────────────────────────────
+
+@app.route('/api/billing/mrr')
+@login_required
+def billing_mrr():
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        rates  = {r['client']: dict(r) for r in
+                  conn.execute('SELECT * FROM client_rates').fetchall()}
+        # count seats (agents) per client
+        agents = conn.execute('SELECT client, COUNT(*) as cnt FROM agents '
+                              'WHERE client IS NOT NULL AND client != "" '
+                              'GROUP BY client').fetchall()
+        # unbilled time totals
+        unbilled = conn.execute('''SELECT client, SUM(hours*rate) as total
+                                   FROM time_entries WHERE invoiced=0 AND billable=1
+                                   GROUP BY client''').fetchall()
+    unbilled_map = {r['client']: round(r['total'],2) for r in unbilled}
+    result = []
+    total_mrr = 0
+    for client, info in rates.items():
+        seat_count = next((r['cnt'] for r in agents if r['client']==client), 0)
+        mrr = info['monthly_fee'] + (info['per_seat'] * seat_count)
+        total_mrr += mrr
+        result.append({
+            'client':      client,
+            'monthly_fee': info['monthly_fee'],
+            'per_seat':    info['per_seat'],
+            'seat_count':  seat_count,
+            'mrr':         round(mrr, 2),
+            'hourly_rate': info['hourly_rate'],
+            'unbilled':    unbilled_map.get(client, 0),
+        })
+    result.sort(key=lambda x: x['mrr'], reverse=True)
+    return jsonify({'clients': result, 'total_mrr': round(total_mrr, 2)})
+
+# ── Invoice create + PDF ──────────────────────────────────────────────────────
+
+def _generate_invoice_pdf(inv_id, client, issued, due, entries, subtotal, tax_rate, total, notes=''):
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib import colors
+    from reportlab.lib.units import inch
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_RIGHT, TA_LEFT, TA_CENTER
+
+    pdf_path = os.path.join(INVOICE_DIR, f'invoice-{inv_id}.pdf')
+    doc = SimpleDocTemplate(pdf_path, pagesize=letter,
+                            leftMargin=0.75*inch, rightMargin=0.75*inch,
+                            topMargin=0.75*inch, bottomMargin=0.75*inch)
+    styles = getSampleStyleSheet()
+    PRIMARY   = colors.HexColor('#1D6FFF')
+    DARK      = colors.HexColor('#0a0a0a')
+    GRAY      = colors.HexColor('#6b7280')
+    LIGHTGRAY = colors.HexColor('#f3f4f6')
+    WHITE     = colors.white
+
+    h1 = ParagraphStyle('h1', fontSize=26, textColor=PRIMARY,    fontName='Helvetica-Bold')
+    h2 = ParagraphStyle('h2', fontSize=11, textColor=DARK,       fontName='Helvetica-Bold')
+    sm = ParagraphStyle('sm', fontSize=9,  textColor=GRAY,       fontName='Helvetica')
+    rt = ParagraphStyle('rt', fontSize=9,  textColor=DARK,       fontName='Helvetica', alignment=TA_RIGHT)
+
+    story = []
+
+    # Header
+    header_data = [[
+        Paragraph(COMPANY_NAME,  h1),
+        Paragraph(f'<b>INVOICE</b>', ParagraphStyle('inv', fontSize=20, textColor=GRAY,
+                  fontName='Helvetica-Bold', alignment=TA_RIGHT))
+    ]]
+    header_tbl = Table(header_data, colWidths=[4*inch, 3*inch])
+    header_tbl.setStyle(TableStyle([('VALIGN',(0,0),(-1,-1),'TOP')]))
+    story.append(header_tbl)
+    story.append(Spacer(1, 6))
+
+    # Company info + invoice meta
+    meta_data = [[
+        Paragraph(f'{COMPANY_ADDR}<br/>{COMPANY_EMAIL}<br/>{COMPANY_PHONE}<br/>{COMPANY_WEBSITE}', sm),
+        Paragraph(
+            f'<b>Invoice #:</b> {inv_id}<br/>'
+            f'<b>Issued:</b>    {issued}<br/>'
+            f'<b>Due:</b>       {due}<br/>'
+            f'<b>Bill To:</b>   {client}', rt)
+    ]]
+    meta_tbl = Table(meta_data, colWidths=[4*inch, 3*inch])
+    meta_tbl.setStyle(TableStyle([('VALIGN',(0,0),(-1,-1),'TOP')]))
+    story.append(meta_tbl)
+    story.append(Spacer(1, 16))
+    story.append(HRFlowable(width='100%', thickness=2, color=PRIMARY))
+    story.append(Spacer(1, 12))
+
+    # Line items table
+    col_headers = ['Date', 'Description', 'Hours', 'Rate', 'Amount']
+    rows = [col_headers]
+    for e in entries:
+        rows.append([
+            e['date'],
+            e['description'],
+            f"{e['hours']:.2f}",
+            f"${e['rate']:.2f}",
+            f"${e['hours']*e['rate']:.2f}"
+        ])
+
+    items_tbl = Table(rows, colWidths=[0.85*inch, 3.5*inch, 0.7*inch, 0.8*inch, 0.85*inch])
+    ts = TableStyle([
+        ('BACKGROUND',   (0,0), (-1,0),  PRIMARY),
+        ('TEXTCOLOR',    (0,0), (-1,0),  WHITE),
+        ('FONTNAME',     (0,0), (-1,0),  'Helvetica-Bold'),
+        ('FONTSIZE',     (0,0), (-1,-1), 9),
+        ('ALIGN',        (2,0), (-1,-1), 'RIGHT'),
+        ('ALIGN',        (0,0), (1,-1),  'LEFT'),
+        ('ROWBACKGROUNDS',(0,1),(-1,-1), [WHITE, LIGHTGRAY]),
+        ('GRID',         (0,0), (-1,-1), 0.25, colors.HexColor('#e5e7eb')),
+        ('TOPPADDING',   (0,0), (-1,-1), 5),
+        ('BOTTOMPADDING',(0,0), (-1,-1), 5),
+        ('LEFTPADDING',  (0,0), (-1,-1), 6),
+        ('RIGHTPADDING', (0,0), (-1,-1), 6),
+    ])
+    items_tbl.setStyle(ts)
+    story.append(items_tbl)
+    story.append(Spacer(1, 16))
+
+    # Totals
+    tax_amt = round(subtotal * tax_rate / 100, 2)
+    totals = [['', '', '', 'Subtotal:', f'${subtotal:.2f}']]
+    if tax_rate:
+        totals.append(['','','', f'Tax ({tax_rate}%):', f'${tax_amt:.2f}'])
+    totals.append(['','','', 'TOTAL DUE:', f'${total:.2f}'])
+    tot_tbl = Table(totals, colWidths=[0.85*inch, 3.5*inch, 0.7*inch, 0.8*inch, 0.85*inch])
+    tot_tbl.setStyle(TableStyle([
+        ('FONTNAME',  (3,-1),(-1,-1), 'Helvetica-Bold'),
+        ('FONTSIZE',  (0,0), (-1,-1), 9),
+        ('ALIGN',     (3,0), (-1,-1), 'RIGHT'),
+        ('LINEABOVE', (3,-1),(-1,-1), 1.5, PRIMARY),
+        ('TEXTCOLOR', (3,-1),(-1,-1), PRIMARY),
+        ('FONTSIZE',  (3,-1),(-1,-1), 11),
+    ]))
+    story.append(tot_tbl)
+
+    if notes:
+        story.append(Spacer(1, 20))
+        story.append(HRFlowable(width='100%', thickness=0.5, color=LIGHTGRAY))
+        story.append(Spacer(1, 8))
+        story.append(Paragraph(f'<b>Notes:</b> {notes}', sm))
+
+    # Footer
+    story.append(Spacer(1, 30))
+    story.append(HRFlowable(width='100%', thickness=0.5, color=LIGHTGRAY))
+    story.append(Spacer(1, 6))
+    story.append(Paragraph(
+        f'Thank you for your business! | {COMPANY_NAME} | {COMPANY_EMAIL} | {COMPANY_PHONE}',
+        ParagraphStyle('ft', fontSize=8, textColor=GRAY, fontName='Helvetica',
+                       alignment=TA_CENTER)))
+
+    doc.build(story)
+    return pdf_path
+
+
+@app.route('/api/billing/invoices', methods=['POST'])
+@login_required
+def billing_invoice_create():
+    d = request.get_json(force=True)
+    client   = d.get('client','').strip()
+    tax_rate = float(d.get('tax_rate', 0))
+    notes    = d.get('notes','')
+    if not client:
+        return jsonify({'ok': False, 'error': 'client required'}), 400
+
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        # Grab all unbilled billable entries for this client
+        entries = [dict(r) for r in conn.execute(
+            'SELECT * FROM time_entries WHERE client=? AND invoiced=0 AND billable=1 '
+            'ORDER BY date', (client,)).fetchall()]
+        if not entries:
+            return jsonify({'ok': False, 'error': 'No unbilled time entries for this client'}), 400
+
+        subtotal  = round(sum(e['hours'] * e['rate'] for e in entries), 2)
+        tax_amt   = round(subtotal * tax_rate / 100, 2)
+        total     = round(subtotal + tax_amt, 2)
+        issued    = datetime.now().strftime('%Y-%m-%d')
+        due       = (datetime.now().replace(day=1) if False else
+                     datetime.now().strftime('%Y-') +
+                     f"{int(datetime.now().strftime('%m'))+1:02d}-01"
+                     if int(datetime.now().strftime('%m')) < 12
+                     else datetime.now().strftime('%Y+1-01-01'))
+        inv_id    = f"INV-{datetime.now().strftime('%Y%m')}-{client[:4].upper()}-{secrets.token_hex(3).upper()}"
+
+        pdf_path  = _generate_invoice_pdf(inv_id, client, issued, issued, entries,
+                                          subtotal, tax_rate, total, notes)
+
+        conn.execute('''INSERT INTO invoices
+                        (id,client,issued_date,due_date,subtotal,tax_rate,total,status,notes,pdf_path)
+                        VALUES (?,?,?,?,?,?,?,"draft",?,?)''',
+                     (inv_id, client, issued, issued, subtotal, tax_rate, total, notes, pdf_path))
+        conn.execute('UPDATE time_entries SET invoiced=1, invoice_id=? '
+                     'WHERE client=? AND invoiced=0 AND billable=1', (inv_id, client))
+        conn.commit()
+
+    return jsonify({'ok': True, 'invoice_id': inv_id, 'total': total,
+                    'entries': len(entries), 'subtotal': subtotal})
+
+
+@app.route('/api/billing/invoices', methods=['GET'])
+@login_required
+def billing_invoices_list():
+    client = request.args.get('client','')
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        q = 'SELECT * FROM invoices'
+        params = []
+        if client:
+            q += ' WHERE client=?'; params.append(client)
+        q += ' ORDER BY created_at DESC'
+        rows = conn.execute(q, params).fetchall()
+    return jsonify([dict(r) for r in rows])
+
+
+@app.route('/api/billing/invoices/<inv_id>/pdf')
+@login_required
+def billing_invoice_pdf(inv_id):
+    from flask import send_file
+    with sqlite3.connect(DB_PATH) as conn:
+        row = conn.execute('SELECT pdf_path FROM invoices WHERE id=?', (inv_id,)).fetchone()
+    if not row or not os.path.exists(row[0]):
+        return jsonify({'error': 'PDF not found'}), 404
+    return send_file(row[0], mimetype='application/pdf',
+                     download_name=f'{inv_id}.pdf', as_attachment=True)
+
+
+@app.route('/api/billing/invoices/<inv_id>/email', methods=['POST'])
+@login_required
+def billing_invoice_email(inv_id):
+    if not SMTP_HOST:
+        return jsonify({'ok': False, 'error': 'SMTP not configured'}), 400
+    d = request.get_json(force=True) or {}
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        inv = conn.execute('SELECT * FROM invoices WHERE id=?', (inv_id,)).fetchone()
+    if not inv:
+        return jsonify({'ok': False, 'error': 'Invoice not found'}), 404
+    inv = dict(inv)
+    to_addr = d.get('to', SMTP_TO)
+
+    msg = MIMEMultipart()
+    msg['Subject'] = f"Invoice {inv_id} from {COMPANY_NAME} — ${inv['total']:.2f} due"
+    msg['From']    = SMTP_FROM
+    msg['To']      = to_addr
+    body = f"""
+Hi,
+
+Please find attached invoice {inv_id} for {inv['client']}.
+
+  Amount Due:  ${inv['total']:.2f}
+  Issued:      {inv['issued_date']}
+  Invoice #:   {inv_id}
+
+Thank you for your business!
+
+{COMPANY_NAME}
+{COMPANY_PHONE}
+{COMPANY_EMAIL}
+{COMPANY_WEBSITE}
+""".strip()
+    msg.attach(MIMEText(body, 'plain'))
+
+    if os.path.exists(inv['pdf_path']):
+        with open(inv['pdf_path'], 'rb') as f:
+            part = MIMEBase('application','octet-stream')
+            part.set_payload(f.read())
+        encoders.encode_base64(part)
+        part.add_header('Content-Disposition', f'attachment; filename="{inv_id}.pdf"')
+        msg.attach(part)
+
+    try:
+        ctx = ssl.create_default_context()
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as s:
+            s.starttls(context=ctx)
+            if SMTP_USER and SMTP_PASS:
+                s.login(SMTP_USER, SMTP_PASS)
+            s.sendmail(SMTP_FROM, to_addr, msg.as_string())
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.execute("UPDATE invoices SET status='sent', emailed_at=datetime('now') WHERE id=?",
+                         (inv_id,))
+            conn.commit()
+        return jsonify({'ok': True, 'sent_to': to_addr})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@app.route('/api/billing/invoices/<inv_id>/status', methods=['POST'])
+@login_required
+def billing_invoice_status(inv_id):
+    status = request.get_json(force=True).get('status','')
+    if status not in ('draft','sent','paid','void'):
+        return jsonify({'ok': False, 'error': 'invalid status'}), 400
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute('UPDATE invoices SET status=? WHERE id=?', (status, inv_id))
+        conn.commit()
+    return jsonify({'ok': True})
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CLIENT EMAIL AUTOMATION — drip campaigns, security tips, welcome sequences
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _render_template_str(text, contact, client='', extra={}):
+    """Simple {var} substitution for email templates."""
+    from datetime import datetime as _dt
+    subs = {
+        'contact_name': contact.get('name', 'there'),
+        'client':       client or contact.get('client', ''),
+        'email':        contact.get('email', ''),
+        'month':        _dt.now().strftime('%B %Y'),
+        'threats_blocked': extra.get('threats_blocked', '0'),
+        'backups_ok':   extra.get('backups_ok', '0'),
+        'company':      COMPANY_NAME,
+        'phone':        COMPANY_PHONE,
+        'company_email': COMPANY_EMAIL,
+    }
+    for k, v in subs.items():
+        text = text.replace('{'+k+'}', str(v))
+    return text
+
+def _send_email_html(to_addr, to_name, subject, body_html, body_text):
+    """Send HTML email. Returns (ok, error_str)."""
+    if not SMTP_HOST:
+        return False, 'SMTP not configured'
+    try:
+        import smtplib, ssl
+        from email.mime.multipart import MIMEMultipart as _MP
+        from email.mime.text import MIMEText as _MT
+        msg = _MP('alternative')
+        msg['Subject'] = subject
+        msg['From']    = f'{COMPANY_NAME} <{SMTP_FROM}>'
+        msg['To']      = f'{to_name} <{to_addr}>'
+        msg.attach(_MT(body_text, 'plain'))
+        msg.attach(_MT(body_html, 'html'))
+        ctx = ssl.create_default_context()
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as s:
+            s.starttls(context=ctx)
+            if SMTP_USER and SMTP_PASS:
+                s.login(SMTP_USER, SMTP_PASS)
+            s.sendmail(SMTP_FROM, to_addr, msg.as_string())
+        return True, ''
+    except Exception as e:
+        return False, str(e)
+
+def _enqueue_sequence_for_contact(contact_id, sequence_id=1):
+    """Queue all steps of a sequence for a new contact."""
+    from datetime import datetime as _dt, timedelta
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        steps = conn.execute(
+            'SELECT * FROM email_sequence_steps WHERE sequence_id=? ORDER BY step_order',
+            (sequence_id,)).fetchall()
+        contact = conn.execute('SELECT * FROM client_contacts WHERE id=?',
+                               (contact_id,)).fetchone()
+        if not contact or not steps:
+            return
+        for step in steps:
+            tmpl = conn.execute('SELECT subject FROM email_templates WHERE id=?',
+                                (step['template_id'],)).fetchone()
+            if not tmpl:
+                continue
+            subj = step['subject_override'] or tmpl['subject']
+            scheduled = (_dt.now() + timedelta(days=step['delay_days'])).strftime('%Y-%m-%d %H:%M:%S')
+            conn.execute('''INSERT INTO email_queue
+                            (contact_id,template_id,subject,scheduled_at,sequence_id,step_id)
+                            VALUES (?,?,?,?,?,?)''',
+                         (contact_id, step['template_id'], subj,
+                          scheduled, sequence_id, step['id']))
+        conn.commit()
+
+def _process_email_queue():
+    """Background worker: send any due emails in the queue."""
+    from datetime import datetime as _dt
+    now = _dt.now().strftime('%Y-%m-%d %H:%M:%S')
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        due = conn.execute(
+            "SELECT q.*,c.name,c.email,c.client,c.subscribed "
+            "FROM email_queue q JOIN client_contacts c ON q.contact_id=c.id "
+            "WHERE q.status='pending' AND q.scheduled_at<=? AND c.subscribed=1",
+            (now,)).fetchall()
+        for row in due:
+            tmpl = conn.execute('SELECT * FROM email_templates WHERE id=?',
+                                (row['template_id'],)).fetchone()
+            if not tmpl:
+                conn.execute("UPDATE email_queue SET status='skip' WHERE id=?", (row['id'],))
+                continue
+            contact = {'name': row['name'], 'email': row['email'], 'client': row['client']}
+            subject  = _render_template_str(row['subject'], contact, row['client'])
+            html     = _render_template_str(tmpl['body_html'], contact, row['client'])
+            txt      = _render_template_str(tmpl['body_text'], contact, row['client'])
+            ok, err  = _send_email_html(row['email'], row['name'], subject, html, txt)
+            status   = 'sent' if ok else 'failed'
+            sent_at  = now if ok else ''
+            conn.execute("UPDATE email_queue SET status=?,sent_at=? WHERE id=?",
+                         (status, sent_at, row['id']))
+            conn.execute("INSERT INTO email_log (contact_id,email,subject,status,error) VALUES (?,?,?,?,?)",
+                         (row['contact_id'], row['email'], subject, status, err))
+        conn.commit()
+
+# Background email sender — runs every 15 minutes
+def _email_queue_loop():
+    while True:
+        try:
+            _process_email_queue()
+        except Exception as e:
+            app.logger.warning(f'Email queue error: {e}')
+        time.sleep(900)
+
+# ── Email automation routes ───────────────────────────────────────────────────
+
+@app.route('/outreach')
+@login_required
+def outreach_page():
+    return render_template('outreach.html')
+
+@app.route('/api/outreach/contacts', methods=['GET'])
+@login_required
+def outreach_contacts_get():
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute('SELECT * FROM client_contacts ORDER BY client,name').fetchall()
+    return jsonify([dict(r) for r in rows])
+
+@app.route('/api/outreach/contacts', methods=['POST'])
+@login_required
+def outreach_contacts_add():
+    d = request.get_json(force=True)
+    name   = d.get('name','').strip()
+    email  = d.get('email','').strip().lower()
+    client = d.get('client','').strip()
+    if not name or not email or not client:
+        return jsonify({'ok': False, 'error': 'name, email, client required'}), 400
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            cur = conn.execute(
+                'INSERT INTO client_contacts (client,name,email) VALUES (?,?,?)',
+                (client, name, email))
+            conn.commit()
+            contact_id = cur.lastrowid
+        # Kick off welcome sequence
+        _enqueue_sequence_for_contact(contact_id, sequence_id=1)
+        return jsonify({'ok': True, 'id': contact_id,
+                        'message': f'Added {name} — welcome sequence queued (email 1 sends now)'})
+    except sqlite3.IntegrityError:
+        return jsonify({'ok': False, 'error': f'{email} already exists'}), 409
+
+@app.route('/api/outreach/contacts/<int:cid>', methods=['DELETE'])
+@login_required
+def outreach_contacts_delete(cid):
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute('DELETE FROM client_contacts WHERE id=?', (cid,))
+        conn.execute('DELETE FROM email_queue WHERE contact_id=? AND status="pending"', (cid,))
+        conn.commit()
+    return jsonify({'ok': True})
+
+@app.route('/api/outreach/contacts/<int:cid>/unsubscribe', methods=['POST'])
+@login_required
+def outreach_unsubscribe(cid):
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute('UPDATE client_contacts SET subscribed=0 WHERE id=?', (cid,))
+        conn.commit()
+    return jsonify({'ok': True})
+
+@app.route('/api/outreach/contacts/<int:cid>/resubscribe', methods=['POST'])
+@login_required
+def outreach_resubscribe(cid):
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute('UPDATE client_contacts SET subscribed=1 WHERE id=?', (cid,))
+        conn.commit()
+    return jsonify({'ok': True})
+
+@app.route('/api/outreach/queue', methods=['GET'])
+@login_required
+def outreach_queue_get():
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute('''SELECT q.*,c.name,c.email,c.client,t.name as tpl_name
+                               FROM email_queue q
+                               JOIN client_contacts c ON q.contact_id=c.id
+                               JOIN email_templates t ON q.template_id=t.id
+                               ORDER BY q.scheduled_at''').fetchall()
+    return jsonify([dict(r) for r in rows])
+
+@app.route('/api/outreach/log', methods=['GET'])
+@login_required
+def outreach_log_get():
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            'SELECT l.*,c.name,c.client FROM email_log l '
+            'JOIN client_contacts c ON l.contact_id=c.id '
+            'ORDER BY l.sent_at DESC LIMIT 200').fetchall()
+    return jsonify([dict(r) for r in rows])
+
+@app.route('/api/outreach/templates', methods=['GET'])
+@login_required
+def outreach_templates_get():
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute('SELECT id,name,subject,category FROM email_templates ORDER BY id').fetchall()
+    return jsonify([dict(r) for r in rows])
+
+@app.route('/api/outreach/send-now', methods=['POST'])
+@login_required
+def outreach_send_now():
+    """Send a specific template to a contact immediately."""
+    d = request.get_json(force=True)
+    contact_id  = d.get('contact_id')
+    template_id = d.get('template_id')
+    if not contact_id or not template_id:
+        return jsonify({'ok': False, 'error': 'contact_id and template_id required'}), 400
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        contact = conn.execute('SELECT * FROM client_contacts WHERE id=?', (contact_id,)).fetchone()
+        tmpl    = conn.execute('SELECT * FROM email_templates WHERE id=?', (template_id,)).fetchone()
+        if not contact or not tmpl:
+            return jsonify({'ok': False, 'error': 'Not found'}), 404
+        c = dict(contact)
+        subject = _render_template_str(tmpl['subject'], c, c['client'])
+        html    = _render_template_str(tmpl['body_html'], c, c['client'])
+        txt     = _render_template_str(tmpl['body_text'], c, c['client'])
+        ok, err = _send_email_html(c['email'], c['name'], subject, html, txt)
+        conn.execute("INSERT INTO email_log (contact_id,email,subject,status,error) VALUES (?,?,?,?,?)",
+                     (contact_id, c['email'], subject, 'sent' if ok else 'failed', err))
+        conn.commit()
+    if ok:
+        return jsonify({'ok': True, 'sent_to': c['email']})
+    return jsonify({'ok': False, 'error': err}), 500
+
+@app.route('/api/outreach/process-queue', methods=['POST'])
+@login_required
+def outreach_process_now():
+    """Force-run the queue processor (for testing)."""
+    _process_email_queue()
+    return jsonify({'ok': True})
+
+# Start email queue background thread
+import threading as _et
+_et.Thread(target=_email_queue_loop, daemon=True).start()
 
 
 if __name__ == '__main__':

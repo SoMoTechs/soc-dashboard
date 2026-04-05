@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Client Outreach — SomoShield</title>
+<style>
+:root{--bg:#0a0a0a;--surface:#111;--surface2:#161616;--border:#1e1e1e;--border2:#2a2a2a;--text:#e5e7eb;--subtle:#6b7280;--blue:#1D6FFF;--green:#10b981;--amber:#f59e0b;--red:#ef4444;--purple:#8b5cf6;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;}
+.wrap{display:flex;min-height:100vh;}
+.sidebar{width:220px;background:var(--surface);border-right:1px solid var(--border);padding:20px 0;display:flex;flex-direction:column;gap:2px;position:sticky;top:0;height:100vh;overflow-y:auto;}
+.logo{padding:0 18px 16px;font-weight:700;font-size:15px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+.logo span{color:var(--blue);}
+.nav-link{display:flex;align-items:center;gap:10px;padding:8px 18px;color:var(--subtle);font-size:13px;text-decoration:none;transition:all .15s;}
+.nav-link:hover,.nav-link.active{background:rgba(29,111,255,.08);color:var(--text);}
+.nav-link.active{border-right:2px solid var(--blue);}
+.main{flex:1;padding:24px;overflow-y:auto;}
+.page-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px;}
+.page-title{font-size:20px;font-weight:700;}
+.page-sub{font-size:12px;color:var(--subtle);margin-top:3px;}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;}
+.card-label{font-size:11px;color:var(--subtle);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;}
+.card-val{font-size:22px;font-weight:700;font-family:'JetBrains Mono',monospace;}
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:20px;}
+.tab{padding:8px 18px;font-size:13px;font-weight:500;color:var(--subtle);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;}
+.tab.active{color:var(--blue);border-bottom-color:var(--blue);}
+.tab-pane{display:none;}.tab-pane.active{display:block;}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:16px;}
+.panel-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);font-size:13px;font-weight:600;}
+.panel-body{padding:16px;}
+.tbl{width:100%;border-collapse:collapse;font-size:12px;}
+.tbl th{text-align:left;padding:8px 12px;border-bottom:1px solid var(--border);color:var(--subtle);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.04em;}
+.tbl td{padding:9px 12px;border-bottom:1px solid var(--border);}
+.tbl tr:last-child td{border-bottom:none;}
+.tbl tr:hover td{background:rgba(255,255,255,.02);}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:6px;border:none;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;text-decoration:none;}
+.btn-primary{background:var(--blue);color:#fff;}.btn-primary:hover{background:#1559cc;}
+.btn-ghost{background:transparent;color:var(--subtle);border:1px solid var(--border2);}.btn-ghost:hover{color:var(--text);}
+.btn-green{background:rgba(16,185,129,.12);color:var(--green);border:1px solid rgba(16,185,129,.2);}
+.btn-red{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.15);}
+.btn-amber{background:rgba(245,158,11,.1);color:var(--amber);border:1px solid rgba(245,158,11,.15);}
+.btn-sm{padding:3px 8px;font-size:11px;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+label{display:block;font-size:11px;color:var(--subtle);margin-bottom:4px;}
+input,select{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:5px;padding:7px 10px;color:var(--text);font-size:12px;font-family:inherit;}
+input:focus,select:focus{outline:none;border-color:var(--blue);}
+.badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:600;text-transform:uppercase;}
+.b-sent{background:rgba(16,185,129,.12);color:var(--green);}
+.b-pending{background:rgba(245,158,11,.1);color:var(--amber);}
+.b-failed{background:rgba(239,68,68,.1);color:var(--red);}
+.b-unsub{background:rgba(107,114,128,.1);color:var(--subtle);}
+.b-skip{background:rgba(107,114,128,.1);color:var(--subtle);}
+.toast-area{position:fixed;bottom:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px;}
+.toast{background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:12px 16px;font-size:13px;min-width:240px;box-shadow:0 4px 20px rgba(0,0,0,.4);animation:tin .3s ease;}
+.toast.ok{border-left:3px solid var(--green);}.toast.err{border-left:3px solid var(--red);}
+@keyframes tin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.mono{font-family:'JetBrains Mono',monospace;font-size:11px;}
+.seq-step{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}
+.seq-step:last-child{border-bottom:none;}
+.seq-day{width:60px;text-align:center;font-weight:700;color:var(--blue);font-size:13px;}
+.seq-info{flex:1;}
+.seq-title{font-size:13px;font-weight:600;}
+.seq-sub{font-size:11px;color:var(--subtle);margin-top:2px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<aside class="sidebar">
+  <div class="logo"><span>Somo</span>Shield</div>
+  <a class="nav-link" href="/">Dashboard</a>
+  <a class="nav-link" href="/agents">Agents</a>
+  <a class="nav-link" href="/alerts">Alerts</a>
+  <a class="nav-link" href="/backups">Backups</a>
+  <a class="nav-link" href="/clients">Clients</a>
+  <a class="nav-link" href="/billing">Billing</a>
+  <a class="nav-link active" href="/outreach">Outreach</a>
+  <a class="nav-link" href="/tools">Tools</a>
+  <a class="nav-link" href="/logout" style="margin-top:auto;color:var(--red);">Sign Out</a>
+</aside>
+<main class="main">
+  <div class="page-header">
+    <div>
+      <div class="page-title">Client Outreach</div>
+      <div class="page-sub">Automated security education emails — welcome sequences, monthly reports, tips</div>
+    </div>
+    <button class="btn btn-primary" onclick="showTab('contacts')">+ Add Contact</button>
+  </div>
+
+  <!-- Stats -->
+  <div class="cards">
+    <div class="card"><div class="card-label">Total Contacts</div><div class="card-val" id="stat-contacts">--</div></div>
+    <div class="card"><div class="card-label">Subscribed</div><div class="card-val" style="color:var(--green)" id="stat-sub">--</div></div>
+    <div class="card"><div class="card-label">Queued Emails</div><div class="card-val" style="color:var(--amber)" id="stat-queued">--</div></div>
+    <div class="card"><div class="card-label">Sent Total</div><div class="card-val" style="color:var(--blue)" id="stat-sent">--</div></div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <div class="tab active" onclick="showTab('contacts')">Contacts</div>
+    <div class="tab" onclick="showTab('add')">Add Contact</div>
+    <div class="tab" onclick="showTab('queue')">Email Queue</div>
+    <div class="tab" onclick="showTab('log')">Sent Log</div>
+    <div class="tab" onclick="showTab('sequence')">Welcome Sequence</div>
+  </div>
+
+  <!-- Contacts -->
+  <div class="tab-pane active" id="tab-contacts">
+    <div class="panel">
+      <div class="panel-head">All Contacts
+        <button class="btn btn-ghost btn-sm" onclick="loadContacts()">Refresh</button>
+      </div>
+      <table class="tbl">
+        <thead><tr><th>Name</th><th>Email</th><th>Client</th><th>Added</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody id="contacts-body"><tr><td colspan="6" style="text-align:center;color:var(--subtle);padding:20px;">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Add Contact -->
+  <div class="tab-pane" id="tab-add">
+    <div class="panel" style="max-width:520px;">
+      <div class="panel-head">Add New Contact</div>
+      <div class="panel-body">
+        <div class="form-row">
+          <div><label>Full Name</label><input id="add-name" placeholder="Jane Smith"></div>
+          <div><label>Email</label><input id="add-email" type="email" placeholder="jane@example.com"></div>
+        </div>
+        <div style="margin-bottom:14px;">
+          <label>Client / Company</label>
+          <input id="add-client" placeholder="GCF, LCMANOR, etc.">
+        </div>
+        <div style="background:var(--surface2);border-radius:6px;padding:12px;margin-bottom:14px;font-size:12px;color:var(--subtle);">
+          <b style="color:var(--text);">What happens when you add a contact:</b><br>
+          Day 0 — Welcome email sent immediately<br>
+          Day 3 — Password security tips<br>
+          Day 7 — Phishing awareness guide<br>
+          Day 14 — Backup strategy explainer<br>
+          Day 21 — MFA setup guide<br>
+          Monthly — Security summary report
+        </div>
+        <button class="btn btn-primary" onclick="addContact()">Add Contact &amp; Start Sequence</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Queue -->
+  <div class="tab-pane" id="tab-queue">
+    <div class="panel">
+      <div class="panel-head">
+        Scheduled Email Queue
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-amber btn-sm" onclick="processNow()">Send Due Now</button>
+          <button class="btn btn-ghost btn-sm" onclick="loadQueue()">Refresh</button>
+        </div>
+      </div>
+      <table class="tbl">
+        <thead><tr><th>Contact</th><th>Client</th><th>Template</th><th>Scheduled</th><th>Status</th><th></th></tr></thead>
+        <tbody id="queue-body"><tr><td colspan="6" style="text-align:center;color:var(--subtle);padding:20px;">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Log -->
+  <div class="tab-pane" id="tab-log">
+    <div class="panel">
+      <div class="panel-head">Sent Email Log
+        <button class="btn btn-ghost btn-sm" onclick="loadLog()">Refresh</button>
+      </div>
+      <table class="tbl">
+        <thead><tr><th>Time</th><th>Contact</th><th>Client</th><th>Subject</th><th>Status</th></tr></thead>
+        <tbody id="log-body"><tr><td colspan="5" style="text-align:center;color:var(--subtle);padding:20px;">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Sequence -->
+  <div class="tab-pane" id="tab-sequence">
+    <div class="panel" style="max-width:600px;">
+      <div class="panel-head">Welcome Sequence — Auto-fires when you add a contact</div>
+      <div class="panel-body">
+        <div class="seq-step">
+          <div class="seq-day">Day 0</div>
+          <div class="seq-info">
+            <div class="seq-title">Welcome to Somo Technologies</div>
+            <div class="seq-sub">Intro email — what we monitor, what we protect</div>
+          </div>
+          <span class="badge b-sent">Active</span>
+        </div>
+        <div class="seq-step">
+          <div class="seq-day">Day 3</div>
+          <div class="seq-info">
+            <div class="seq-title">⚠️ Password Security</div>
+            <div class="seq-sub">81% of breaches = weak passwords. Here's how to fix it.</div>
+          </div>
+          <span class="badge b-sent">Active</span>
+        </div>
+        <div class="seq-step">
+          <div class="seq-day">Day 7</div>
+          <div class="seq-info">
+            <div class="seq-title">🎣 Phishing Awareness</div>
+            <div class="seq-sub">How to spot a fake email before it's too late</div>
+          </div>
+          <span class="badge b-sent">Active</span>
+        </div>
+        <div class="seq-step">
+          <div class="seq-day">Day 14</div>
+          <div class="seq-info">
+            <div class="seq-title">💾 Backup Strategy</div>
+            <div class="seq-sub">60% of businesses that lose data close within 6 months</div>
+          </div>
+          <span class="badge b-sent">Active</span>
+        </div>
+        <div class="seq-step">
+          <div class="seq-day">Day 21</div>
+          <div class="seq-info">
+            <div class="seq-title">🔐 Multi-Factor Authentication</div>
+            <div class="seq-sub">One setting that blocks 99.9% of account hacks</div>
+          </div>
+          <span class="badge b-sent">Active</span>
+        </div>
+
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
+          <div style="font-size:12px;color:var(--subtle);margin-bottom:12px;">Send any template to any contact immediately:</div>
+          <div class="form-row">
+            <div><label>Contact</label>
+              <select id="manual-contact"><option value="">Select contact...</option></select>
+            </div>
+            <div><label>Template</label>
+              <select id="manual-template"><option value="">Select template...</option></select>
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="sendNow()">Send Now</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+</div>
+<div class="toast-area" id="toast-area"></div>
+
+<script>
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function toast(msg,type='ok'){
+  var el=document.createElement('div');
+  el.className='toast '+(type==='err'?'err':'ok');
+  el.textContent=msg;
+  document.getElementById('toast-area').appendChild(el);
+  setTimeout(function(){el.remove();},4500);
+}
+
+var _tabs=['contacts','add','queue','log','sequence'];
+function showTab(name){
+  document.querySelectorAll('.tab').forEach(function(t,i){t.classList.toggle('active',_tabs[i]===name);});
+  document.querySelectorAll('.tab-pane').forEach(function(p){p.classList.toggle('active',p.id==='tab-'+name);});
+  if(name==='contacts')loadContacts();
+  if(name==='queue')loadQueue();
+  if(name==='log')loadLog();
+  if(name==='sequence')loadManualSelects();
+}
+
+function loadStats(){
+  fetch('/api/outreach/contacts').then(r=>r.json()).then(function(c){
+    document.getElementById('stat-contacts').textContent=c.length;
+    document.getElementById('stat-sub').textContent=c.filter(x=>x.subscribed).length;
+  });
+  fetch('/api/outreach/queue').then(r=>r.json()).then(function(q){
+    document.getElementById('stat-queued').textContent=q.filter(x=>x.status==='pending').length;
+  });
+  fetch('/api/outreach/log').then(r=>r.json()).then(function(l){
+    document.getElementById('stat-sent').textContent=l.filter(x=>x.status==='sent').length;
+  });
+}
+
+function loadContacts(){
+  fetch('/api/outreach/contacts').then(r=>r.json()).then(function(rows){
+    var tb=document.getElementById('contacts-body');
+    if(!rows.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--subtle);padding:20px;">No contacts yet — add one in the Add Contact tab</td></tr>';return;}
+    tb.innerHTML=rows.map(function(c){
+      var badge=c.subscribed?'<span class="badge b-sent">Active</span>':'<span class="badge b-unsub">Unsubscribed</span>';
+      var actions=c.subscribed
+        ?'<button class="btn btn-ghost btn-sm" onclick="unsub('+c.id+')">Unsub</button>'
+        :'<button class="btn btn-ghost btn-sm" onclick="resub('+c.id+')">Resub</button>';
+      return '<tr>'+
+        '<td><b>'+esc(c.name)+'</b></td>'+
+        '<td class="mono">'+esc(c.email)+'</td>'+
+        '<td>'+esc(c.client)+'</td>'+
+        '<td class="mono" style="color:var(--subtle);">'+esc((c.created_at||'').split(' ')[0])+'</td>'+
+        '<td>'+badge+'</td>'+
+        '<td style="display:flex;gap:4px;">'+actions+
+          ' <button class="btn btn-red btn-sm" onclick="delContact('+c.id+',\''+esc(c.name)+'\')">Remove</button>'+
+        '</td>'+
+      '</tr>';
+    }).join('');
+  });
+}
+
+function addContact(){
+  var name=document.getElementById('add-name').value.trim();
+  var email=document.getElementById('add-email').value.trim();
+  var client=document.getElementById('add-client').value.trim();
+  if(!name||!email||!client){toast('Fill in name, email, and client','err');return;}
+  fetch('/api/outreach/contacts',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({name,email,client})})
+    .then(r=>r.json()).then(function(d){
+      if(d.ok){
+        toast(d.message||'Contact added — welcome email queued');
+        document.getElementById('add-name').value='';
+        document.getElementById('add-email').value='';
+        document.getElementById('add-client').value='';
+        showTab('contacts');
+        loadStats();
+      }else toast(d.error||'Error','err');
+    });
+}
+
+function delContact(id,name){
+  if(!confirm('Remove '+name+' and cancel their pending emails?'))return;
+  fetch('/api/outreach/contacts/'+id,{method:'DELETE'}).then(r=>r.json()).then(function(d){
+    if(d.ok){toast('Removed '+name);loadContacts();loadStats();}
+  });
+}
+
+function unsub(id){
+  fetch('/api/outreach/contacts/'+id+'/unsubscribe',{method:'POST'}).then(r=>r.json()).then(function(d){
+    if(d.ok){toast('Unsubscribed');loadContacts();loadStats();}
+  });
+}
+function resub(id){
+  fetch('/api/outreach/contacts/'+id+'/resubscribe',{method:'POST'}).then(r=>r.json()).then(function(d){
+    if(d.ok){toast('Resubscribed');loadContacts();loadStats();}
+  });
+}
+
+function loadQueue(){
+  fetch('/api/outreach/queue').then(r=>r.json()).then(function(rows){
+    var tb=document.getElementById('queue-body');
+    if(!rows.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--subtle);padding:20px;">Queue is empty</td></tr>';return;}
+    tb.innerHTML=rows.map(function(q){
+      var badge='<span class="badge b-'+q.status+'">'+q.status+'</span>';
+      return '<tr>'+
+        '<td><b>'+esc(q.name)+'</b></td>'+
+        '<td>'+esc(q.client)+'</td>'+
+        '<td>'+esc(q.tpl_name)+'</td>'+
+        '<td class="mono">'+esc((q.scheduled_at||'').replace('T',' '))+'</td>'+
+        '<td>'+badge+'</td>'+
+        '<td></td>'+
+      '</tr>';
+    }).join('');
+  });
+}
+
+function loadLog(){
+  fetch('/api/outreach/log').then(r=>r.json()).then(function(rows){
+    var tb=document.getElementById('log-body');
+    if(!rows.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--subtle);padding:20px;">No emails sent yet</td></tr>';return;}
+    tb.innerHTML=rows.map(function(l){
+      return '<tr>'+
+        '<td class="mono" style="color:var(--subtle);">'+esc((l.sent_at||'').replace('T',' '))+'</td>'+
+        '<td><b>'+esc(l.name)+'</b></td>'+
+        '<td>'+esc(l.client)+'</td>'+
+        '<td>'+esc(l.subject)+'</td>'+
+        '<td><span class="badge b-'+l.status+'">'+l.status+'</span></td>'+
+      '</tr>';
+    }).join('');
+  });
+}
+
+function processNow(){
+  fetch('/api/outreach/process-queue',{method:'POST'}).then(r=>r.json()).then(function(d){
+    if(d.ok){toast('Queue processed — sent all due emails');loadQueue();loadLog();loadStats();}
+  });
+}
+
+function loadManualSelects(){
+  fetch('/api/outreach/contacts').then(r=>r.json()).then(function(c){
+    var sel=document.getElementById('manual-contact');
+    while(sel.options.length>1)sel.remove(1);
+    c.filter(x=>x.subscribed).forEach(function(x){
+      var o=new Option(x.name+' ('+x.client+')',x.id);
+      sel.add(o);
+    });
+  });
+  fetch('/api/outreach/templates').then(r=>r.json()).then(function(t){
+    var sel=document.getElementById('manual-template');
+    while(sel.options.length>1)sel.remove(1);
+    t.forEach(function(x){sel.add(new Option(x.name,x.id));});
+  });
+}
+
+function sendNow(){
+  var cid=document.getElementById('manual-contact').value;
+  var tid=document.getElementById('manual-template').value;
+  if(!cid||!tid){toast('Select a contact and template','err');return;}
+  fetch('/api/outreach/send-now',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({contact_id:parseInt(cid),template_id:parseInt(tid)})})
+    .then(r=>r.json()).then(function(d){
+      if(d.ok){toast('Sent to '+d.sent_to);loadLog();loadStats();}
+      else toast(d.error||'Error','err');
+    });
+}
+
+loadStats();
+</script>
+</body>
+</html>

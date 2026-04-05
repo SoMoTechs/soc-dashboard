@@ -2224,6 +2224,45 @@ function checkAiTriage(){
 // Run on load, then every 3 minutes
 checkAiTriage();
 setInterval(checkAiTriage,180000);
+
+// ── USB Backup Toast ─────────────────────────��────────────────────────────────
+var _usbLastState = 'idle';
+function checkUsbBackup(){
+  fetch('/api/usb/status').then(function(r){return r.json();}).then(function(d){
+    if(d.state === 'done' && _usbLastState !== 'done'){
+      _usbLastState = 'done';
+      showUsbToast(d.msg || 'Backup complete. Safe to unplug USB.', 'done');
+      // auto-clear after 60s so it doesn't re-fire on next poll
+      setTimeout(function(){ fetch('/api/usb/clear',{method:'POST'}); _usbLastState='idle'; }, 60000);
+    } else if(d.state === 'error' && _usbLastState !== 'error'){
+      _usbLastState = 'error';
+      showUsbToast('Backup error: ' + (d.msg||'unknown'), 'error');
+    } else if(d.state !== 'done' && d.state !== 'error'){
+      _usbLastState = d.state;
+    }
+  }).catch(function(){});
+}
+function showUsbToast(msg, type){
+  var wrap = document.getElementById('ai-toast-wrap');
+  if(!wrap) return;
+  var t = document.createElement('div');
+  var cls = type === 'done' ? 'info' : 'crit';
+  var icon = type === 'done' ? '💾' : '⚠️';
+  var label = type === 'done' ? 'USB BACKUP' : 'BACKUP ERROR';
+  t.className = 'ai-toast ' + cls;
+  t.innerHTML =
+    '<div class="ai-toast-head">' +
+      '<span class="ai-badge">' + icon + ' ' + label + '</span>' +
+    '</div>' +
+    '<div class="ai-title">' + (type==='done' ? 'Backup Complete — Safe to Unplug' : 'Backup Failed') + '</div>' +
+    '<div class="ai-summary">' + escHtml(msg) + '</div>' +
+    '<button class="ai-dismiss" onclick="dismissAiToast(this.parentElement)">✕</button>' +
+    '<div class="ai-progress"></div>';
+  wrap.appendChild(t);
+  if(type === 'done') setTimeout(function(){ dismissAiToast(t); }, 30000);
+}
+// Poll every 4 seconds
+setInterval(checkUsbBackup, 4000);
 </script>
 <!-- Copyright (c) 2024-2026 Somo Technologies LLC. All rights reserved. | anthony@somotechs.com -->
 <div style="position:fixed;bottom:0;right:0;padding:3px 10px;font-size:9px;color:var(--text-subtle,#555);background:var(--surface,#0d0d0d);border-top-left-radius:4px;border-top:1px solid var(--border,#222);z-index:9999;opacity:0.6;pointer-events:none;">
