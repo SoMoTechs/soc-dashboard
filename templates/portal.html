@@ -149,68 +149,180 @@ body{background-image:radial-gradient(ellipse 70% 50% at 15% 20%,rgba(29,111,255
 
 </div>
 
-<!-- SUPPORT REQUEST PANEL -->
-<div class="panel" style="margin-bottom:20px;">
-  <div class="panel-hdr">
-    <span class="panel-hdr-title">🎧 Request Support</span>
-  </div>
-  <div class="panel-body">
-    <p style="font-size:12px;color:var(--text-muted);margin-bottom:14px;">Need help? Submit a quick request and a technician will connect to your device remotely.</p>
-    <div style="display:flex;flex-direction:column;gap:10px;max-width:480px;">
-      <div>
-        <label style="font-size:10px;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Which device? (hostname or description)</label>
-        <input id="sr-hostname" type="text" placeholder="e.g. DESKTOP-ACCT01 or 'the front desk PC'"
-          style="width:100%;background:var(--surface-2);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:7px;font-size:12px;font-family:inherit;outline:none;">
-      </div>
-      <div>
-        <label style="font-size:10px;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">What's the issue?</label>
-        <textarea id="sr-desc" rows="3" placeholder="Brief description of the problem..."
-          style="width:100%;background:var(--surface-2);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:7px;font-size:12px;font-family:inherit;outline:none;resize:vertical;"></textarea>
-      </div>
-      <button id="sr-btn" onclick="submitSupportRequest()"
-        style="align-self:flex-start;padding:9px 22px;background:rgba(29,111,255,.15);border:1px solid rgba(29,111,255,.35);border-radius:7px;color:#93C5FD;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;">
-        📨 Send Request
-      </button>
-      <div id="sr-result" style="font-size:12px;display:none;padding:8px 12px;border-radius:6px;"></div>
-    </div>
-  </div>
-</div>
-
 <footer class="footer">
   <div>Powered by <strong>SomoShield</strong> · Managed by SomoTechs · (417) 390-5129</div>
   <div>Confidential · For {{ label }} use only</div>
 </footer>
 
+<!-- ── CHAT BUBBLE ────────────────────────────────────────────────────────── -->
+<style>
+#chat-bubble{position:fixed;bottom:24px;right:24px;z-index:9000;}
+#chat-btn{
+  width:56px;height:56px;border-radius:50%;
+  background:#1D6FFF;border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 4px 20px rgba(29,111,255,.45);
+  transition:transform .15s,box-shadow .15s;
+  font-size:22px;
+}
+#chat-btn:hover{transform:scale(1.08);box-shadow:0 6px 28px rgba(29,111,255,.6);}
+#chat-badge{
+  position:absolute;top:-4px;right:-4px;width:16px;height:16px;border-radius:50%;
+  background:#ef4444;font-size:9px;font-weight:700;color:#fff;
+  display:none;align-items:center;justify-content:center;border:2px solid var(--bg);
+}
+#chat-win{
+  position:absolute;bottom:68px;right:0;width:320px;
+  background:var(--surface);border:1px solid var(--border);border-radius:14px;
+  box-shadow:0 16px 48px rgba(0,0,0,.6);
+  display:none;flex-direction:column;overflow:hidden;
+  animation:chat-in .2s ease;
+}
+@keyframes chat-in{from{opacity:0;transform:translateY(10px) scale(.97);}to{opacity:1;transform:none;}}
+#chat-head{
+  padding:14px 16px;background:linear-gradient(135deg,#1D6FFF,#3b82f6);
+  display:flex;align-items:center;gap:10px;
+}
+.chat-av{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.2);
+  display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+.chat-who{flex:1;}
+.chat-who-name{font-size:13px;font-weight:700;color:#fff;}
+.chat-who-status{font-size:10px;color:rgba(255,255,255,.75);display:flex;align-items:center;gap:4px;}
+.chat-status-dot{width:6px;height:6px;border-radius:50%;background:#4ade80;}
+#chat-close{background:none;border:none;color:rgba(255,255,255,.7);font-size:18px;cursor:pointer;line-height:1;padding:2px;}
+#chat-close:hover{color:#fff;}
+#chat-msgs{
+  max-height:220px;overflow-y:auto;padding:14px 14px 8px;
+  display:flex;flex-direction:column;gap:8px;
+}
+#chat-msgs::-webkit-scrollbar{width:3px;}
+#chat-msgs::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px;}
+.msg{display:flex;flex-direction:column;max-width:80%;}
+.msg.them{align-self:flex-start;}
+.msg.me{align-self:flex-end;align-items:flex-end;}
+.msg-bubble{
+  padding:8px 12px;border-radius:12px;font-size:12px;line-height:1.5;
+}
+.msg.them .msg-bubble{background:var(--surface-2);color:var(--text);border-radius:12px 12px 12px 3px;}
+.msg.me .msg-bubble{background:#1D6FFF;color:#fff;border-radius:12px 12px 3px 12px;}
+.msg-ts{font-size:9px;color:var(--text-subtle);margin-top:2px;padding:0 2px;}
+#chat-form{padding:10px 12px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px;}
+#chat-device{
+  background:var(--surface-2);border:1px solid var(--border);
+  color:var(--text);padding:7px 10px;border-radius:8px;font-size:11px;
+  font-family:inherit;outline:none;
+}
+#chat-device::placeholder{color:var(--text-subtle);}
+#chat-input-row{display:flex;gap:6px;}
+#chat-input{
+  flex:1;background:var(--surface-2);border:1px solid var(--border);
+  color:var(--text);padding:8px 10px;border-radius:8px;font-size:12px;
+  font-family:inherit;outline:none;resize:none;height:52px;
+}
+#chat-input::placeholder{color:var(--text-subtle);}
+#chat-send{
+  padding:0 12px;background:#1D6FFF;border:none;border-radius:8px;
+  color:#fff;font-size:16px;cursor:pointer;flex-shrink:0;transition:background .15s;
+}
+#chat-send:hover{background:#2563eb;}
+#chat-911-row{display:flex;align-items:center;gap:8px;}
+#chat-911-chk{width:14px;height:14px;cursor:pointer;accent-color:#ef4444;}
+.chat-911-label{font-size:11px;color:var(--text-muted);cursor:pointer;}
+.chat-911-label span{color:#ef4444;font-weight:700;}
+</style>
+
+<div id="chat-bubble">
+  <button id="chat-btn" onclick="toggleChat()" title="Get Support">💬</button>
+  <div id="chat-badge"></div>
+
+  <div id="chat-win">
+    <div id="chat-head">
+      <div class="chat-av">👨‍💻</div>
+      <div class="chat-who">
+        <div class="chat-who-name">SomoTechs Support</div>
+        <div class="chat-who-status"><div class="chat-status-dot"></div>Anthony · Usually replies quickly</div>
+      </div>
+      <button id="chat-close" onclick="toggleChat()">✕</button>
+    </div>
+
+    <div id="chat-msgs">
+      <div class="msg them">
+        <div class="msg-bubble">Hi! Need help with something? Type your message and I'll be right with you. 🛡️</div>
+        <div class="msg-ts">SomoTechs</div>
+      </div>
+    </div>
+
+    <div id="chat-form">
+      <input id="chat-device" type="text" placeholder="Which computer? (optional, e.g. front desk PC)">
+      <div id="chat-input-row">
+        <textarea id="chat-input" placeholder="Describe what's going on..."></textarea>
+        <button id="chat-send" onclick="sendChat()" title="Send">➤</button>
+      </div>
+      <div id="chat-911-row">
+        <input type="checkbox" id="chat-911-chk">
+        <label for="chat-911-chk" class="chat-911-label">🚨 <span>911 — urgent,</span> call/text me right now</label>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
-function submitSupportRequest(){
-  const hostname = document.getElementById('sr-hostname').value.trim();
-  const desc     = document.getElementById('sr-desc').value.trim();
-  const btn      = document.getElementById('sr-btn');
-  const result   = document.getElementById('sr-result');
-  if(!desc){ result.style.display='block';result.style.background='rgba(239,68,68,.1)';result.style.color='var(--red)';result.textContent='Please describe the issue.';return; }
-  btn.disabled=true; btn.textContent='Sending...';
+var _chatOpen = false;
+function toggleChat(){
+  _chatOpen = !_chatOpen;
+  document.getElementById('chat-win').style.display = _chatOpen ? 'flex' : 'none';
+  document.getElementById('chat-btn').textContent = _chatOpen ? '✕' : '💬';
+  if(_chatOpen) setTimeout(function(){ document.getElementById('chat-input').focus(); }, 100);
+}
+function chatTs(){
+  return new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});
+}
+function appendMsg(text, who){
+  var msgs = document.getElementById('chat-msgs');
+  var d = document.createElement('div');
+  d.className = 'msg ' + who;
+  d.innerHTML = '<div class="msg-bubble">' + text.replace(/</g,'&lt;') + '</div><div class="msg-ts">' + (who==='me'?'You':'SomoTechs') + ' · ' + chatTs() + '</div>';
+  msgs.appendChild(d);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+function sendChat(){
+  var input = document.getElementById('chat-input');
+  var device = document.getElementById('chat-device').value.trim();
+  var desc = input.value.trim();
+  var is911 = document.getElementById('chat-911-chk').checked;
+  if(!desc) return;
+  appendMsg(desc, 'me');
+  input.value = '';
+  var fullDesc = (is911 ? '🚨 URGENT/911 — ' : '') + desc;
+  if(device) fullDesc += '\nDevice: ' + device;
   fetch('/api/support/request',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({client:'{{ label }}', hostname, description:desc, pt:'{{ token }}'})
-  }).then(r=>r.json()).then(d=>{
-    result.style.display='block';
+    body: JSON.stringify({
+      client:'{{ label }}',
+      hostname: device || '',
+      description: fullDesc,
+      urgent: is911,
+      pt:'{{ token }}'
+    })
+  }).then(function(r){return r.json();}).then(function(d){
     if(d.ok){
-      result.style.background='rgba(34,197,94,.1)';result.style.color='var(--green)';
-      result.textContent='✓ Request sent! A technician will reach out shortly.';
-      document.getElementById('sr-hostname').value='';
-      document.getElementById('sr-desc').value='';
+      appendMsg(is911
+        ? "🚨 Got it — Anthony is being alerted right now! He'll call or text you immediately."
+        : "Got it! I'll review your request and connect remotely within the hour. You can close this window.",
+        'them');
+      document.getElementById('chat-911-chk').checked = false;
     } else {
-      result.style.background='rgba(239,68,68,.1)';result.style.color='var(--red)';
-      result.textContent='Error sending request. Please call (417) 390-5129.';
+      appendMsg("Something went wrong. Please call (417) 390-5129 directly.", 'them');
     }
-    btn.disabled=false; btn.textContent='📨 Send Request';
-  }).catch(()=>{
-    result.style.display='block';result.style.background='rgba(239,68,68,.1)';result.style.color='var(--red)';
-    result.textContent='Could not send request. Please call (417) 390-5129.';
-    btn.disabled=false; btn.textContent='📨 Send Request';
+  }).catch(function(){
+    appendMsg("Couldn't send — please call (417) 390-5129 directly.", 'them');
   });
 }
+// Send on Ctrl+Enter
+document.getElementById('chat-input').addEventListener('keydown', function(e){
+  if((e.ctrlKey || e.metaKey) && e.key === 'Enter'){ e.preventDefault(); sendChat(); }
+});
 </script>
 
 <script>

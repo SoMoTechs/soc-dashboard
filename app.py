@@ -6559,10 +6559,11 @@ def api_support_request():
     client   = str(d.get('client','')).strip()[:60]
     hostname = str(d.get('hostname','')).strip()[:60]
     desc     = str(d.get('description','No details provided')).strip()[:500]
-    pt       = d.get('pt','')  # portal token for auth from client portal
+    pt       = d.get('pt','')
+    urgent   = bool(d.get('urgent', False))
 
     # validate: either logged in OR valid portal token
-    if not session.get('user'):
+    if not session.get('logged_in'):
         if pt:
             conn = db_conn()
             row = conn.execute("SELECT client FROM portal_tokens WHERE token=?", (pt,)).fetchone()
@@ -6583,21 +6584,33 @@ def api_support_request():
     req_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
     conn.close()
 
-    # notify Tony via SMS + email
-    who    = f"{client} / {hostname}" if hostname else client
-    msg    = f"[SomoTechs] Support request from {who}: {desc[:120]}"
+    # 911 urgent = SMS immediately, email with URGENT subject
+    who = f"{client} / {hostname}" if hostname else client
     mesh_link = f"{MESH_URL}/?search={urllib.parse.quote(hostname, safe='')}" if hostname else MESH_URL
-    _send_sms(msg)
-    _send_email(
-        subject=f"[Support Request] {who}",
-        body=(
-            f"<h2>New Support Request</h2>"
-            f"<p><b>Client:</b> {client}<br>"
-            f"<b>Device:</b> {hostname or 'unknown'}<br>"
-            f"<b>Request:</b> {desc}</p>"
-            f"<p><a href='{mesh_link}'>Connect via MeshCentral →</a></p>"
+    if urgent:
+        _send_sms(f"🚨 911 URGENT from {who}: {desc[:100]} — Connect: {mesh_link}")
+        _send_email(
+            subject=f"🚨 911 URGENT SUPPORT — {who}",
+            body=(
+                f"<h2 style='color:red'>🚨 URGENT / 911 REQUEST</h2>"
+                f"<p><b>Client:</b> {client}<br>"
+                f"<b>Device:</b> {hostname or 'unknown'}<br>"
+                f"<b>Message:</b> {desc}</p>"
+                f"<p><a href='{mesh_link}'>Connect via MeshCentral →</a></p>"
+            )
         )
-    )
+    else:
+        # Regular: email only (SMS disabled to avoid inbox flooding)
+        _send_email(
+            subject=f"[Support Request] {who}",
+            body=(
+                f"<h2>New Support Request</h2>"
+                f"<p><b>Client:</b> {client}<br>"
+                f"<b>Device:</b> {hostname or 'unknown'}<br>"
+                f"<b>Request:</b> {desc}</p>"
+                f"<p><a href='{mesh_link}'>Connect via MeshCentral →</a></p>"
+            )
+        )
     return jsonify({'ok': True, 'id': req_id})
 
 @app.route('/api/support/requests', methods=['GET'])
