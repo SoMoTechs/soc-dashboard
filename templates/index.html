@@ -871,6 +871,10 @@ body.sb-collapsed .sb-live{justify-content:center;}
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
       Policies
     </a>
+    <a href="javascript:void(0)" onclick="document.getElementById('support-tile').scrollIntoView({behavior:'smooth'});document.getElementById('support-tile').style.outline='2px solid var(--accent)';setTimeout(function(){document.getElementById('support-tile').style.outline='';},1500);" class="sb-link" id="sb-support-link">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+      <span>Support</span><span id="sb-support-count" style="display:none;margin-left:auto;background:#ef4444;color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;"></span>
+    </a>
     <span class="sb-section">Tools</span>
     <a href="/tools" class="sb-link">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
@@ -1138,7 +1142,7 @@ body.sb-collapsed .sb-live{justify-content:center;}
         <div style="display:none"><div class="rank-list" id="top-agents"></div></div>
 
         <!-- SUPPORT REQUESTS -->
-        <div class="panel-card" data-tile="support-requests" style="flex-shrink:0">
+        <div class="panel-card" data-tile="support-requests" id="support-tile" style="flex-shrink:0">
           <div class="panel-head">
             <div class="panel-title"><div class="panel-icon green">🎧</div>Support Requests</div>
             <div style="display:flex;align-items:center;gap:6px;">
@@ -2321,6 +2325,19 @@ function loadSupportRequests(){
       badge.style.background = items.length > 0 ? 'rgba(239,68,68,.1)' : 'rgba(34,197,94,.1)';
       badge.style.color = items.length > 0 ? 'var(--red)' : 'var(--green)';
       badge.style.borderColor = items.length > 0 ? 'rgba(239,68,68,.3)' : 'rgba(34,197,94,.3)';
+    }
+    // Update sidebar count bubble
+    var sbCount = document.getElementById('sb-support-count');
+    var sbLink = document.getElementById('sb-support-link');
+    if(sbCount){
+      if(items.length > 0){
+        sbCount.textContent = items.length;
+        sbCount.style.display = '';
+        if(sbLink) sbLink.style.color = 'var(--red)';
+      } else {
+        sbCount.style.display = 'none';
+        if(sbLink) sbLink.style.color = '';
+      }
     }
     if(items.length === 0){
       el.innerHTML = '<div style="font-size:10px;color:var(--text-subtle);padding:6px 4px">No open requests</div>';
