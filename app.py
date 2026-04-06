@@ -656,20 +656,30 @@ def _send_sms(body):
             app.logger.warning(f'SMS failed: {e}')
     threading.Thread(target=_send, daemon=True).start()
 
-def _send_email_notify(subject, body, attach_path=None):
-    """Send a notification email to SMTP_TO. Non-blocking."""
+def _send_email_notify(subject, body, attach_path=None, html=None):
+    """Send a notification email to SMTP_TO. Non-blocking.
+    If html= is provided, sends a multipart email with both HTML and plain-text fallback.
+    If html= is None but body looks like HTML, it's sent as HTML automatically."""
     if not SMTP_HOST:
         return
-    import threading, smtplib, ssl
+    import threading, smtplib, ssl, re as _re
     from email.mime.multipart import MIMEMultipart
     from email.mime.text import MIMEText as _MIMEText
+    # Auto-detect HTML if not explicitly specified
+    if html is None:
+        html = bool(_re.search(r'<[a-zA-Z]', body))
     def _send():
         try:
-            msg = MIMEMultipart()
+            msg = MIMEMultipart('alternative') if html else MIMEMultipart()
             msg['Subject'] = subject
             msg['From']    = SMTP_FROM
             msg['To']      = SMTP_TO
-            msg.attach(_MIMEText(body, 'plain'))
+            if html:
+                plain = _re.sub(r'<[^>]+>', '', body).strip()
+                msg.attach(_MIMEText(plain, 'plain'))
+                msg.attach(_MIMEText(body, 'html'))
+            else:
+                msg.attach(_MIMEText(body, 'plain'))
             ctx = ssl.create_default_context()
             with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as s:
                 s.starttls(context=ctx)
@@ -6599,30 +6609,91 @@ def api_support_request():
     # 911 urgent = SMS immediately, email with URGENT subject
     who = f"{client} / {hostname}" if hostname else client
     mesh_link = f"{MESH_URL}/?search={urllib.parse.quote(hostname, safe='')}" if hostname else MESH_URL
+    _email_base = """
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#0a1628;font-family:'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0a1628;padding:32px 0;">
+    <tr><td align="center">
+      <table width="580" cellpadding="0" cellspacing="0" style="background:#0f1c2d;border-radius:10px;overflow:hidden;border:1px solid #1e3a5f;">
+        <!-- Header -->
+        <tr>
+          <td style="background:linear-gradient(135deg,#1e3a6e 0%,#0f2444 100%);padding:28px 32px;text-align:center;">
+            <div style="font-size:22px;font-weight:700;color:#ffffff;letter-spacing:1px;">
+              🛡️ SomoShield SOC
+            </div>
+            <div style="font-size:12px;color:#7fa8d4;margin-top:4px;letter-spacing:2px;text-transform:uppercase;">
+              Managed Security · SomoTechs
+            </div>
+          </td>
+        </tr>
+        <!-- Alert Banner -->
+        <tr>
+          <td style="background:{banner_bg};padding:14px 32px;text-align:center;">
+            <span style="font-size:16px;font-weight:600;color:{banner_fg};">{banner_text}</span>
+          </td>
+        </tr>
+        <!-- Body -->
+        <tr>
+          <td style="padding:28px 32px;">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="padding:10px 0;border-bottom:1px solid #1e3a5f;">
+                  <span style="color:#7fa8d4;font-size:12px;text-transform:uppercase;letter-spacing:1px;">Client</span><br>
+                  <span style="color:#e2e8f0;font-size:15px;font-weight:600;">{client}</span>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:10px 0;border-bottom:1px solid #1e3a5f;">
+                  <span style="color:#7fa8d4;font-size:12px;text-transform:uppercase;letter-spacing:1px;">Device</span><br>
+                  <span style="color:#e2e8f0;font-size:15px;">{hostname}</span>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:10px 0;border-bottom:1px solid #1e3a5f;">
+                  <span style="color:#7fa8d4;font-size:12px;text-transform:uppercase;letter-spacing:1px;">Message</span><br>
+                  <span style="color:#e2e8f0;font-size:15px;line-height:1.6;">{desc}</span>
+                </td>
+              </tr>
+            </table>
+            <div style="margin-top:24px;text-align:center;">
+              <a href="{mesh_link}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;padding:12px 28px;border-radius:6px;font-weight:600;font-size:14px;">
+                🖥️ Connect via MeshCentral
+              </a>
+            </div>
+          </td>
+        </tr>
+        <!-- Footer -->
+        <tr>
+          <td style="background:#07111e;padding:16px 32px;text-align:center;border-top:1px solid #1e3a5f;">
+            <span style="color:#4a6fa5;font-size:11px;">
+              Powered by SomoShield · SomoTechs LLC · (417) 390-5129
+            </span>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
     if urgent:
+        html_body = _email_base.format(
+            banner_bg='#7f1d1d', banner_fg='#fca5a5',
+            banner_text='🚨 URGENT / 911 — IMMEDIATE RESPONSE NEEDED',
+            client=client, hostname=hostname or 'Unknown',
+            desc=desc, mesh_link=mesh_link
+        )
         _send_sms(f"🚨 911 URGENT from {who}: {desc[:100]} — Connect: {mesh_link}")
-        _send_email(
-            subject=f"🚨 911 URGENT SUPPORT — {who}",
-            body=(
-                f"<h2 style='color:red'>🚨 URGENT / 911 REQUEST</h2>"
-                f"<p><b>Client:</b> {client}<br>"
-                f"<b>Device:</b> {hostname or 'unknown'}<br>"
-                f"<b>Message:</b> {desc}</p>"
-                f"<p><a href='{mesh_link}'>Connect via MeshCentral →</a></p>"
-            )
-        )
+        _send_email_notify(subject=f"🚨 911 URGENT SUPPORT — {who}", body=html_body)
     else:
-        # Regular: email only (SMS disabled to avoid inbox flooding)
-        _send_email(
-            subject=f"[Support Request] {who}",
-            body=(
-                f"<h2>New Support Request</h2>"
-                f"<p><b>Client:</b> {client}<br>"
-                f"<b>Device:</b> {hostname or 'unknown'}<br>"
-                f"<b>Request:</b> {desc}</p>"
-                f"<p><a href='{mesh_link}'>Connect via MeshCentral →</a></p>"
-            )
+        html_body = _email_base.format(
+            banner_bg='#1e3a5f', banner_fg='#93c5fd',
+            banner_text='📋 New Support Request',
+            client=client, hostname=hostname or 'Not specified',
+            desc=desc, mesh_link=mesh_link
         )
+        _send_email_notify(subject=f"[Support Request] {who}", body=html_body)
     return jsonify({'ok': True, 'id': req_id})
 
 @app.route('/api/support/requests', methods=['GET'])
