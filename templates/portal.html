@@ -149,10 +149,69 @@ body{background-image:radial-gradient(ellipse 70% 50% at 15% 20%,rgba(29,111,255
 
 </div>
 
+<!-- SUPPORT REQUEST PANEL -->
+<div class="panel" style="margin-bottom:20px;">
+  <div class="panel-hdr">
+    <span class="panel-hdr-title">🎧 Request Support</span>
+  </div>
+  <div class="panel-body">
+    <p style="font-size:12px;color:var(--text-muted);margin-bottom:14px;">Need help? Submit a quick request and a technician will connect to your device remotely.</p>
+    <div style="display:flex;flex-direction:column;gap:10px;max-width:480px;">
+      <div>
+        <label style="font-size:10px;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">Which device? (hostname or description)</label>
+        <input id="sr-hostname" type="text" placeholder="e.g. DESKTOP-ACCT01 or 'the front desk PC'"
+          style="width:100%;background:var(--surface-2);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:7px;font-size:12px;font-family:inherit;outline:none;">
+      </div>
+      <div>
+        <label style="font-size:10px;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;">What's the issue?</label>
+        <textarea id="sr-desc" rows="3" placeholder="Brief description of the problem..."
+          style="width:100%;background:var(--surface-2);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:7px;font-size:12px;font-family:inherit;outline:none;resize:vertical;"></textarea>
+      </div>
+      <button id="sr-btn" onclick="submitSupportRequest()"
+        style="align-self:flex-start;padding:9px 22px;background:rgba(29,111,255,.15);border:1px solid rgba(29,111,255,.35);border-radius:7px;color:#93C5FD;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;">
+        📨 Send Request
+      </button>
+      <div id="sr-result" style="font-size:12px;display:none;padding:8px 12px;border-radius:6px;"></div>
+    </div>
+  </div>
+</div>
+
 <footer class="footer">
   <div>Powered by <strong>SomoShield</strong> · Managed by SomoTechs · (417) 390-5129</div>
   <div>Confidential · For {{ label }} use only</div>
 </footer>
+
+<script>
+function submitSupportRequest(){
+  const hostname = document.getElementById('sr-hostname').value.trim();
+  const desc     = document.getElementById('sr-desc').value.trim();
+  const btn      = document.getElementById('sr-btn');
+  const result   = document.getElementById('sr-result');
+  if(!desc){ result.style.display='block';result.style.background='rgba(239,68,68,.1)';result.style.color='var(--red)';result.textContent='Please describe the issue.';return; }
+  btn.disabled=true; btn.textContent='Sending...';
+  fetch('/api/support/request',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({client:'{{ label }}', hostname, description:desc, pt:'{{ token }}'})
+  }).then(r=>r.json()).then(d=>{
+    result.style.display='block';
+    if(d.ok){
+      result.style.background='rgba(34,197,94,.1)';result.style.color='var(--green)';
+      result.textContent='✓ Request sent! A technician will reach out shortly.';
+      document.getElementById('sr-hostname').value='';
+      document.getElementById('sr-desc').value='';
+    } else {
+      result.style.background='rgba(239,68,68,.1)';result.style.color='var(--red)';
+      result.textContent='Error sending request. Please call (417) 390-5129.';
+    }
+    btn.disabled=false; btn.textContent='📨 Send Request';
+  }).catch(()=>{
+    result.style.display='block';result.style.background='rgba(239,68,68,.1)';result.style.color='var(--red)';
+    result.textContent='Could not send request. Please call (417) 390-5129.';
+    btn.disabled=false; btn.textContent='📨 Send Request';
+  });
+}
+</script>
 
 <script>
 const CLIENT='{{ client }}';

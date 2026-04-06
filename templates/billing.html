@@ -352,38 +352,36 @@ function showTab(name){
 }
 
 // ── Load clients into selects ─────────────────────────────────────────────────
-function loadClientsIntoSelects(){
-  fetch('/api/billing/rates').then(r=>r.json()).then(function(rates){
-    var clients=rates.map(r=>r.client);
-    // Also load from billing mrr to get all clients
-    fetch('/api/billing/mrr').then(r=>r.json()).then(function(d){
-      d.clients.forEach(function(c){if(!clients.includes(c.client))clients.push(c.client);});
-      clients.sort();
-      var selects=['te-client','filter-client','inv-client','rate-client'];
-      selects.forEach(function(id){
-        var sel=document.getElementById(id);
-        if(!sel)return;
-        var cur=sel.value;
-        // keep first option
-        while(sel.options.length>1)sel.remove(1);
-        clients.forEach(function(c){
-          var o=document.createElement('option');
-          o.value=o.textContent=c;
-          sel.appendChild(o);
-        });
-        if(cur)sel.value=cur;
-      });
+function _populateClientSelects(clients){
+  var selects=['te-client','filter-client','inv-client','rate-client'];
+  selects.forEach(function(id){
+    var sel=document.getElementById(id);
+    if(!sel)return;
+    var cur=sel.value;
+    while(sel.options.length>1)sel.remove(1);
+    clients.forEach(function(c){
+      var o=document.createElement('option');
+      o.value=o.textContent=c;
+      sel.appendChild(o);
     });
-    // Also populate filter-client in entries tab
-    var fc=document.getElementById('filter-client');
-    if(fc){
-      while(fc.options.length>1)fc.remove(1);
-      clients.forEach(function(c){
-        var o=document.createElement('option');
-        o.value=o.textContent=c;
-        fc.appendChild(o);
-      });
-    }
+    if(cur)sel.value=cur;
+  });
+}
+function loadClientsIntoSelects(){
+  // Primary source: unified /api/clients (clients_meta + agents)
+  fetch('/api/clients').then(r=>r.json()).then(function(all){
+    var clients=[...all];
+    // Merge any billing-only clients
+    Promise.all([
+      fetch('/api/billing/rates').then(r=>r.json()).catch(()=>[]),
+      fetch('/api/billing/mrr').then(r=>r.json()).catch(()=>({clients:[]}))
+    ]).then(function(res){
+      var rates=res[0], mrr=res[1];
+      rates.forEach(function(r){if(r.client&&!clients.includes(r.client))clients.push(r.client);});
+      (mrr.clients||[]).forEach(function(c){if(c.client&&!clients.includes(c.client))clients.push(c.client);});
+      clients.sort();
+      _populateClientSelects(clients);
+    });
   });
 }
 

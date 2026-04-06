@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>SMS Chat — SomoShield</title>
+<style>
+:root{--bg:#0a0a0a;--surface:#111;--s2:#161616;--s3:#1c1c1c;--border:#1e1e1e;--b2:#2a2a2a;--text:#e5e7eb;--subtle:#6b7280;--blue:#1D6FFF;--green:#10b981;--amber:#f59e0b;--red:#ef4444;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;font-size:14px;}
+.layout{display:flex;height:100vh;}
+
+/* Sidebar nav */
+.sidenav{width:220px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:20px 0;gap:2px;flex-shrink:0;}
+.logo{padding:0 18px 16px;font-weight:700;font-size:15px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+.logo span{color:var(--blue);}
+.nav-link{display:block;padding:8px 18px;color:var(--subtle);font-size:13px;text-decoration:none;transition:all .15s;}
+.nav-link:hover,.nav-link.active{background:rgba(29,111,255,.08);color:var(--text);}
+.nav-link.active{border-right:2px solid var(--blue);}
+
+/* Chat layout */
+.chat-wrap{flex:1;display:flex;min-width:0;}
+
+/* Conversation list */
+.conv-list{width:280px;border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;}
+.conv-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.conv-head h2{font-size:14px;font-weight:600;}
+.conv-search{padding:8px 12px;border-bottom:1px solid var(--border);}
+.conv-search input{width:100%;background:var(--s2);border:1px solid var(--b2);border-radius:6px;padding:6px 10px;color:var(--text);font-size:12px;}
+.conv-search input:focus{outline:none;border-color:var(--blue);}
+.conv-items{flex:1;overflow-y:auto;}
+.conv-item{padding:12px 14px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .1s;display:flex;align-items:center;gap:10px;}
+.conv-item:hover{background:var(--s2);}
+.conv-item.active{background:rgba(29,111,255,.08);border-right:2px solid var(--blue);}
+.conv-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--blue),#8b5cf6);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0;}
+.conv-info{flex:1;min-width:0;}
+.conv-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.conv-preview{font-size:11px;color:var(--subtle);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
+.conv-meta{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;}
+.conv-time{font-size:10px;color:var(--subtle);}
+.unread-dot{width:8px;height:8px;border-radius:50%;background:var(--blue);}
+.conv-new{padding:12px 14px;border-bottom:1px solid var(--border);}
+
+/* Message pane */
+.msg-pane{flex:1;display:flex;flex-direction:column;min-width:0;}
+.msg-head{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;}
+.msg-head-info{flex:1;}
+.msg-head-name{font-size:15px;font-weight:600;}
+.msg-head-sub{font-size:11px;color:var(--subtle);margin-top:2px;}
+.msg-body{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;}
+.msg-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--subtle);gap:10px;font-size:13px;}
+.msg-empty .icon{font-size:42px;}
+.bubble-wrap{display:flex;flex-direction:column;max-width:70%;}
+.bubble-wrap.out{align-self:flex-end;align-items:flex-end;}
+.bubble-wrap.in{align-self:flex-start;align-items:flex-start;}
+.bubble{padding:10px 14px;border-radius:14px;font-size:13px;line-height:1.45;word-break:break-word;}
+.bubble.out{background:var(--blue);color:#fff;border-bottom-right-radius:4px;}
+.bubble.in{background:var(--s3);color:var(--text);border-bottom-left-radius:4px;border:1px solid var(--b2);}
+.bubble-time{font-size:10px;color:var(--subtle);margin-top:3px;padding:0 2px;}
+.msg-input-wrap{padding:14px 16px;border-top:1px solid var(--border);display:flex;gap:10px;align-items:flex-end;}
+.msg-input{flex:1;background:var(--s2);border:1px solid var(--b2);border-radius:10px;padding:10px 14px;color:var(--text);font-size:13px;font-family:inherit;resize:none;max-height:120px;min-height:42px;}
+.msg-input:focus{outline:none;border-color:var(--blue);}
+.send-btn{background:var(--blue);color:#fff;border:none;border-radius:10px;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer;flex-shrink:0;transition:background .15s;}
+.send-btn:hover{background:#1559cc;}
+.send-btn:disabled{background:var(--b2);color:var(--subtle);cursor:not-allowed;}
+
+/* New chat modal */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;display:flex;align-items:center;justify-content:center;display:none;}
+.modal-bg.open{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--b2);border-radius:10px;padding:24px;width:360px;display:flex;flex-direction:column;gap:14px;}
+.modal h3{font-size:15px;font-weight:600;}
+label{font-size:11px;color:var(--subtle);display:block;margin-bottom:4px;}
+.modal input,.modal select{width:100%;background:var(--s2);border:1px solid var(--b2);border-radius:6px;padding:8px 10px;color:var(--text);font-size:13px;font-family:inherit;}
+.modal input:focus,.modal select:focus{outline:none;border-color:var(--blue);}
+.modal-btns{display:flex;gap:8px;justify-content:flex-end;}
+.btn{padding:7px 14px;border-radius:6px;border:none;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;}
+.btn-primary{background:var(--blue);color:#fff;}.btn-primary:hover{background:#1559cc;}
+.btn-ghost{background:transparent;color:var(--subtle);border:1px solid var(--b2);}.btn-ghost:hover{color:var(--text);}
+
+/* Badge on nav */
+.nav-badge{display:inline-block;background:var(--red);color:#fff;border-radius:10px;font-size:10px;font-weight:700;padding:1px 6px;margin-left:6px;vertical-align:middle;}
+</style>
+</head>
+<body>
+<div class="layout">
+
+<!-- Side nav -->
+<aside class="sidenav">
+  <div class="logo"><span>Somo</span>Shield</div>
+  <a class="nav-link" href="/">Dashboard</a>
+  <a class="nav-link" href="/agents">Agents</a>
+  <a class="nav-link" href="/alerts">Alerts</a>
+  <a class="nav-link" href="/backups">Backups</a>
+  <a class="nav-link" href="/clients">Clients</a>
+  <a class="nav-link" href="/billing">Billing</a>
+  <a class="nav-link" href="/outreach">Outreach</a>
+  <a class="nav-link active" href="/sms">SMS Chat <span id="nav-unread" class="nav-badge" style="display:none"></span></a>
+  <a class="nav-link" href="/tools">Tools</a>
+  <a class="nav-link" href="/logout" style="margin-top:auto;color:var(--red);">Sign Out</a>
+</aside>
+
+<!-- Chat -->
+<div class="chat-wrap">
+
+  <!-- Conversation list -->
+  <div class="conv-list">
+    <div class="conv-head">
+      <h2>Messages</h2>
+      <button class="btn btn-primary" style="padding:4px 10px;font-size:11px;" onclick="openNewChat()">+ New</button>
+    </div>
+    <div class="conv-search">
+      <input id="conv-search" placeholder="Search..." oninput="filterConvs()">
+    </div>
+    <div class="conv-items" id="conv-items">
+      <div style="padding:20px;text-align:center;color:var(--subtle);font-size:12px;">Loading...</div>
+    </div>
+  </div>
+
+  <!-- Message pane -->
+  <div class="msg-pane" id="msg-pane">
+    <div class="msg-head" id="msg-head" style="display:none">
+      <div class="conv-avatar" id="msg-avatar">?</div>
+      <div class="msg-head-info">
+        <div class="msg-head-name" id="msg-name">—</div>
+        <div class="msg-head-sub" id="msg-sub">—</div>
+      </div>
+    </div>
+    <div class="msg-body" id="msg-body">
+      <div class="msg-empty">
+        <div class="icon">💬</div>
+        <div>Select a conversation or start a new one</div>
+        <div style="font-size:11px;">Clients text your Telnyx number — it shows up here</div>
+      </div>
+    </div>
+    <div class="msg-input-wrap" id="msg-input-wrap" style="display:none">
+      <textarea class="msg-input" id="msg-input" placeholder="Type a message..." rows="1"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg();}"
+        oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px'"></textarea>
+      <button class="send-btn" id="send-btn" onclick="sendMsg()">Send</button>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- New chat modal -->
+<div class="modal-bg" id="new-chat-modal">
+  <div class="modal">
+    <h3>New Message</h3>
+    <div>
+      <label>Phone Number</label>
+      <input id="nc-phone" placeholder="+1 (417) 555-0100" type="tel">
+    </div>
+    <div>
+      <label>Name</label>
+      <input id="nc-name" placeholder="Jane Smith">
+    </div>
+    <div>
+      <label>Client (optional)</label>
+      <input id="nc-client" placeholder="GCF, Eye Doc, etc.">
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-ghost" onclick="closeNewChat()">Cancel</button>
+      <button class="btn btn-primary" onclick="startNewChat()">Start Chat</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let convs = [];
+let activePhone = null;
+let pollTimer = null;
+
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function timeAgo(ts){
+  if(!ts)return '';
+  const d=new Date(ts.replace(' ','T')+'Z');
+  const diff=Math.floor((Date.now()-d)/1000);
+  if(diff<60)return 'just now';
+  if(diff<3600)return Math.floor(diff/60)+'m ago';
+  if(diff<86400)return Math.floor(diff/3600)+'h ago';
+  return d.toLocaleDateString();
+}
+
+function initials(name){
+  return name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)||'?';
+}
+
+// ── Load conversations ────────────────────────────────────────────────────────
+function loadConvs(){
+  fetch('/api/sms/messages').then(r=>r.json()).then(function(rows){
+    // Group by phone number
+    const map={};
+    rows.forEach(function(m){
+      const phone=m.direction==='inbound'?m.from_num:m.to_num;
+      if(!map[phone]||m.created_at>map[phone].created_at) map[phone]=m;
+    });
+    convs=Object.values(map).sort((a,b)=>b.created_at.localeCompare(a.created_at));
+    renderConvs();
+    checkUnread();
+  }).catch(function(){});
+}
+
+function renderConvs(filter){
+  const container=document.getElementById('conv-items');
+  let list=convs;
+  if(filter){const f=filter.toLowerCase();list=list.filter(m=>(m.contact_name||m.from_num||'').toLowerCase().includes(f)||(m.client||'').toLowerCase().includes(f));}
+  if(!list.length){
+    container.innerHTML='<div style="padding:20px;text-align:center;color:var(--subtle);font-size:12px;">'+(filter?'No results':'No messages yet<br>Click + New to start')+'</div>';
+    return;
+  }
+  container.innerHTML=list.map(function(m){
+    const phone=m.direction==='inbound'?m.from_num:m.to_num;
+    const name=m.contact_name||phone;
+    const isActive=phone===activePhone;
+    const hasUnread=m.direction==='inbound'&&!m.read;
+    return '<div class="conv-item'+(isActive?' active':'')+'" onclick="openConv(\''+esc(phone)+'\',\''+esc(name)+'\',\''+esc(m.client||'')+'\')">'+
+      '<div class="conv-avatar">'+esc(initials(name))+'</div>'+
+      '<div class="conv-info">'+
+        '<div class="conv-name">'+esc(name)+'</div>'+
+        '<div class="conv-preview">'+(m.direction==='outbound'?'You: ':'')+esc((m.body||'').slice(0,40))+'</div>'+
+      '</div>'+
+      '<div class="conv-meta">'+
+        '<div class="conv-time">'+timeAgo(m.created_at)+'</div>'+
+        (hasUnread?'<div class="unread-dot"></div>':'')+''+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+function filterConvs(){renderConvs(document.getElementById('conv-search').value);}
+
+// ── Open conversation ─────────────────────────────────────────────────────────
+function openConv(phone,name,client){
+  activePhone=phone;
+  document.getElementById('msg-head').style.display='flex';
+  document.getElementById('msg-input-wrap').style.display='flex';
+  document.getElementById('msg-avatar').textContent=initials(name);
+  document.getElementById('msg-name').textContent=name;
+  document.getElementById('msg-sub').textContent=(client?client+' · ':'')+phone;
+  loadMessages(phone);
+  renderConvs(document.getElementById('conv-search').value);
+  clearInterval(pollTimer);
+  pollTimer=setInterval(function(){if(activePhone)loadMessages(activePhone,true);},3000);
+}
+
+function loadMessages(phone,silent){
+  fetch('/api/sms/messages?phone='+encodeURIComponent(phone))
+    .then(r=>r.json()).then(function(msgs){
+      if(!silent||msgs.length!==_lastMsgCount){
+        renderMessages(msgs);
+        _lastMsgCount=msgs.length;
+      }
+      checkUnread();
+    });
+}
+var _lastMsgCount=0;
+
+function renderMessages(msgs){
+  const body=document.getElementById('msg-body');
+  if(!msgs.length){body.innerHTML='<div class="msg-empty"><div class="icon">👋</div><div>Send the first message</div></div>';return;}
+  const atBottom=body.scrollHeight-body.scrollTop-body.clientHeight<60;
+  body.innerHTML=msgs.map(function(m){
+    const dir=m.direction==='outbound'?'out':'in';
+    const time=m.created_at?(new Date(m.created_at.replace(' ','T')+'Z')).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'';
+    return '<div class="bubble-wrap '+dir+'">'+
+      '<div class="bubble '+dir+'">'+esc(m.body)+'</div>'+
+      '<div class="bubble-time">'+time+'</div>'+
+    '</div>';
+  }).join('');
+  if(atBottom||!_lastMsgCount) body.scrollTop=body.scrollHeight;
+}
+
+// ── Send ─────────────────────────────────────────────────────────────────────
+function sendMsg(){
+  const input=document.getElementById('msg-input');
+  const body=input.value.trim();
+  if(!body||!activePhone)return;
+  const btn=document.getElementById('send-btn');
+  btn.disabled=true;
+  fetch('/api/sms/send',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({to:activePhone,body})})
+    .then(r=>r.json()).then(function(d){
+      btn.disabled=false;
+      if(d.ok){
+        input.value='';input.style.height='auto';
+        loadMessages(activePhone);
+        loadConvs();
+      }else{
+        alert('Send failed: '+(d.error||'unknown'));
+      }
+    }).catch(function(){btn.disabled=false;});
+}
+
+// ── New chat ──────────────────────────────────────────────────────────────────
+function openNewChat(){document.getElementById('new-chat-modal').classList.add('open');document.getElementById('nc-phone').focus();}
+function closeNewChat(){document.getElementById('new-chat-modal').classList.remove('open');}
+function startNewChat(){
+  const phone=document.getElementById('nc-phone').value.trim();
+  const name=document.getElementById('nc-name').value.trim()||phone;
+  const client=document.getElementById('nc-client').value.trim();
+  if(!phone){alert('Phone number required');return;}
+  // Save contact first
+  fetch('/api/sms/contacts',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({phone,name,client})})
+    .then(r=>r.json()).then(function(){
+      closeNewChat();
+      openConv(phone.startsWith('+')?phone:('+1'+phone.replace(/\D/g,'')),name,client);
+    });
+}
+
+// ── Unread badge ─────────────────────────────────────────────────────────────
+function checkUnread(){
+  fetch('/api/sms/unread').then(r=>r.json()).then(function(d){
+    const badge=document.getElementById('nav-unread');
+    if(d.unread>0){badge.textContent=d.unread;badge.style.display='inline-block';}
+    else badge.style.display='none';
+  });
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+loadConvs();
+setInterval(function(){loadConvs();checkUnread();},10000);
+
+// Close modal on backdrop click
+document.getElementById('new-chat-modal').addEventListener('click',function(e){
+  if(e.target===this)closeNewChat();
+});
+</script>
+</body>
+</html>

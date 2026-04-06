@@ -797,11 +797,12 @@ let termPendingIds=new Set();
 let termPollTimer=null;
 let termKnownIds=new Set();
 let refreshTimer=null;
-let refreshCountdown=5;
+let refreshCountdown=3;
 let activeTab='shell';
 let toolPendingCmds={};
 let toolPollTimer=null;
 let toolData={};
+let toolCache={};      // persists data per-agent so switching back doesn't re-fetch
 let toolSoftwareFilter='';
 
 /* ── 2FA COMMAND GATE ── */
@@ -908,12 +909,21 @@ function _updateClientFilter(data){
   const sel=document.getElementById('clientFilter');
   if(!sel)return;
   const cur=sel.value;
-  const clients=[...new Set(data.map(a=>a.client||'').filter(Boolean))].sort();
-  sel.innerHTML='<option value="">All Clients</option>'+
-    clients.map(c=>`<option value="${esc(c)}"${c===cur?' selected':''}>${esc(c)}</option>`).join('');
-  // Also update datalist for assign modal
-  const dl=document.getElementById('client-names-list');
-  if(dl)dl.innerHTML=clients.map(c=>`<option value="${esc(c)}">`).join('');
+  const fromAgents=new Set(data.map(a=>a.client||'').filter(Boolean));
+  // Merge all known clients from central list
+  fetch('/api/clients').then(r=>r.json()).then(all=>{
+    const clients=[...new Set([...fromAgents,...all])].sort();
+    sel.innerHTML='<option value="">All Clients</option>'+
+      clients.map(c=>`<option value="${esc(c)}"${c===cur?' selected':''}>${esc(c)}</option>`).join('');
+    const dl=document.getElementById('client-names-list');
+    if(dl)dl.innerHTML=clients.map(c=>`<option value="${esc(c)}">`).join('');
+  }).catch(()=>{
+    const clients=[...fromAgents].sort();
+    sel.innerHTML='<option value="">All Clients</option>'+
+      clients.map(c=>`<option value="${esc(c)}"${c===cur?' selected':''}>${esc(c)}</option>`).join('');
+    const dl=document.getElementById('client-names-list');
+    if(dl)dl.innerHTML=clients.map(c=>`<option value="${esc(c)}">`).join('');
+  });
 }
 
 function renderTable(data){
@@ -957,7 +967,7 @@ function renderTable(data){
       <td style="font-size:11px">${fmtLastSeen(a.last_seen)}</td>
       <td class="td-actions" onclick="event.stopPropagation()">
         <button class="btn-term" onclick="openTerminal('${a.id}')">▶ Shell</button>
-        <button class="btn-mesh" onclick="openMeshRemote('${esc(a.hostname||'')}',this)" title="Open in MeshCentral">🖥 Mesh</button>
+        <button class="btn-mesh" onclick="openMeshRemote('${esc(a.hostname||'')}',this)" title="Remote Desktop via MeshCentral">🖥 Remote</button>
         <button class="btn-rdp" onclick="openRemoteDesktopFor('${esc(a.hostname||'')}',this)" title="Remote Desktop via Action1">🖥</button>
         <button class="btn-av" id="av-btn-${esc(a.hostname||a.id)}" onclick="runAVScan('${esc(a.hostname||'')}',this)" title="Run Defender scan">${avBadge(a.hostname)}</button>
         <button class="btn-del" onclick="deleteAgent('${a.id}','${esc(a.hostname||'?')}')">Del</button>
@@ -1053,13 +1063,21 @@ async function openTerminal(agentId){
     return;
   }
   stopTermPoll();stopToolPoll();
+  const prevAgent=selectedAgentId;
+  // Save current tool data to cache before switching
+  if(prevAgent&&prevAgent!==agentId) toolCache[prevAgent]=Object.assign({},toolData);
   selectedAgentId=agentId;terminalOpen=true;
   termKnownIds=new Set();termPendingIds=new Set();termCmdHistory=[];termHistoryIdx=-1;
-  activeTab='shell';toolData={};toolPendingCmds={};
+  activeTab='shell';toolPendingCmds={};
+  // Restore from cache if we've loaded this agent before
+  toolData=toolCache[agentId]?Object.assign({},toolCache[agentId]):{};
   ['processes','services','network','software','events','patches'].forEach(t=>{
-    document.getElementById('tool-body-'+t).innerHTML='<div class="tool-loading">Fetching data from agent...</div>';
+    const body=document.getElementById('tool-body-'+t);
+    if(toolData[t]){renderTool(t,JSON.stringify(toolData[t]));}
+    else if(body){body.innerHTML='<div class="tool-loading">Click tab to load</div>';}
   });
-  document.getElementById('tool-body-hardware').innerHTML='<div class="tool-loading">Fetching hardware info...</div>';
+  if(toolData['sysinfo']){renderTool('sysinfo',JSON.stringify(toolData['sysinfo']));}
+  else{document.getElementById('tool-body-hardware').innerHTML='<div class="tool-loading">Click Hardware tab to load</div>';}
   // Files tab: reset the file list but keep the upload UI
   const flb=document.getElementById('file-list-body');
   if(flb)flb.innerHTML='<div style="color:var(--text-subtle);font-size:11px;">Click the Files tab to load</div>';
@@ -1099,6 +1117,8 @@ async function openTerminal(agentId){
 
 function closeTerminal(){
   stopTermPoll();stopToolPoll();
+  // Save to cache before closing so reopening is instant
+  if(selectedAgentId&&Object.keys(toolData).length) toolCache[selectedAgentId]=Object.assign({},toolData);
   selectedAgentId=null;terminalOpen=false;
   activeTab='shell';toolData={};toolPendingCmds={};
   document.getElementById('rmmPanel').style.display='none';
@@ -1149,7 +1169,7 @@ async function fetchTool(tool){
 }
 
 function refreshTool(tool){delete toolData[tool];delete toolPendingCmds[tool];fetchTool(tool);}
-function startToolPoll(){if(toolPollTimer)return;toolPollTimer=setInterval(pollTools,2000);}
+function startToolPoll(){if(toolPollTimer)return;toolPollTimer=setInterval(pollTools,800);}
 function stopToolPoll(){if(toolPollTimer){clearInterval(toolPollTimer);toolPollTimer=null;}}
 
 async function pollTools(){
@@ -1180,6 +1200,8 @@ function renderTool(tool,rawOutput){
   if(!body)return;
   if(data===null){body.innerHTML=`<pre class="tool-error-pre">${esc(rawOutput)}</pre>`;toolData[tool]=null;return;}
   toolData[tool]=data;
+  // Keep cache in sync so coming back to this agent is instant
+  if(selectedAgentId){if(!toolCache[selectedAgentId])toolCache[selectedAgentId]={};toolCache[selectedAgentId][tool]=data;}
   if(tool==='processes')renderProcesses(data,body);
   else if(tool==='services')renderServices(data,body);
   else if(tool==='network')renderNetwork(data,body);
@@ -2147,8 +2169,8 @@ function startRefreshCycle(){
   clearInterval(refreshTimer);refreshCountdown=5;animateBar(0);
   refreshTimer=setInterval(()=>{
     refreshCountdown--;
-    const pct=Math.round(((5-refreshCountdown)/5)*100);animateBar(pct);
-    if(refreshCountdown<=0){loadAgents();refreshCountdown=5;animateBar(0);}
+    const pct=Math.round(((3-refreshCountdown)/3)*100);animateBar(pct);
+    if(refreshCountdown<=0){loadAgents();refreshCountdown=3;animateBar(0);}
   },1000);
 }
 function animateBar(pct){

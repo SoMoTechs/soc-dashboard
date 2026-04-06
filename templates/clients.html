@@ -572,14 +572,16 @@ function loadAll(){
   loadPortalLinks();
   loadMeshGroups();
   // Load meta for white-label
-  fetch('/api/clients/meta').then(r=>r.json()).then(rows=>{
+  Promise.all([
+    fetch('/api/clients/meta').then(r=>r.json()).catch(()=>[]),
+    fetch('/api/clients').then(r=>r.json()).catch(()=>[]),
+    fetch('/api/health/clients').then(r=>r.json()).catch(()=>({clients:[]}))
+  ]).then(([rows, allNames, h])=>{
     const clients = [];
     rows.forEach(m=>{ _metaCache[m.client]=m; if(!clients.includes(m.client)) clients.push(m.client); });
-    // Also load from health to get all clients
-    fetch('/api/health/clients').then(r=>r.json()).then(h=>{
-      (h.clients||[]).forEach(c=>{ if(!clients.includes(c.name)) clients.push(c.name); });
-      loadWhiteLabelClients(clients.sort());
-    }).catch(()=>loadWhiteLabelClients(clients.sort()));
+    allNames.forEach(n=>{ if(!clients.includes(n)) clients.push(n); });
+    (h.clients||[]).forEach(c=>{ if(!clients.includes(c.name)) clients.push(c.name); });
+    loadWhiteLabelClients(clients.sort());
   });
 }
 

@@ -10,6 +10,7 @@ import ipaddress
 from datetime import datetime
 from functools import wraps
 import urllib3
+import urllib.parse
 import sqlite3
 import hashlib
 import secrets
@@ -330,6 +331,27 @@ def init_db():
             conn.commit()
         except:
             pass
+    # ── SMS Chat tables ───────────────────────────────────────────────────────
+    conn.execute('''CREATE TABLE IF NOT EXISTS sms_messages (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        direction   TEXT NOT NULL,
+        from_num    TEXT NOT NULL,
+        to_num      TEXT NOT NULL,
+        body        TEXT NOT NULL,
+        contact_name TEXT DEFAULT "",
+        client      TEXT DEFAULT "",
+        status      TEXT DEFAULT "received",
+        read        INTEGER DEFAULT 0,
+        created_at  TEXT DEFAULT CURRENT_TIMESTAMP
+    )''')
+    conn.execute('''CREATE TABLE IF NOT EXISTS sms_contacts (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        phone       TEXT NOT NULL UNIQUE,
+        name        TEXT NOT NULL,
+        client      TEXT DEFAULT "",
+        created_at  TEXT DEFAULT CURRENT_TIMESTAMP
+    )''')
+    conn.commit()
     # ── Billing / PSA tables ──────────────────────────────────────────────────
     conn.execute('''CREATE TABLE IF NOT EXISTS client_rates (
         client      TEXT PRIMARY KEY,
@@ -605,13 +627,37 @@ SMTP_PASS  = os.environ.get('SMTP_PASS', '')
 SMTP_FROM  = os.environ.get('SMTP_FROM', 'helpdesk@somotechs.com')
 SMTP_TO    = os.environ.get('SMTP_TO',   'helpdesk@somotechs.com')
 
-# Push notifications via ntfy.sh (free) — set NTFY_TOPIC to enable
-# Install ntfy app (iOS/Android), subscribe to your topic, done.
-NTFY_URL   = os.environ.get('NTFY_URL',   'https://ntfy.sh')
-NTFY_TOPIC = os.environ.get('NTFY_TOPIC', '')  # e.g. somotechs-soc-abc123
+# ── Telnyx SMS notifications ──────────────────────────────────────────────────
+TELNYX_API_KEY  = os.environ.get('TELNYX_API_KEY',  '')   # API v2 key from telnyx.com
+TELNYX_FROM     = os.environ.get('TELNYX_FROM',     '')   # +1XXXXXXXXXX your Telnyx number
+TELNYX_TO       = os.environ.get('TELNYX_TO',       '')   # +1XXXXXXXXXX your cell
+
+def _send_sms(body):
+    """Fire-and-forget SMS via Telnyx REST API."""
+    if not (TELNYX_API_KEY and TELNYX_FROM and TELNYX_TO):
+        return
+    import threading
+    def _send():
+        try:
+            requests.post(
+                'https://api.telnyx.com/v2/messages',
+                headers={
+                    'Authorization': f'Bearer {TELNYX_API_KEY}',
+                    'Content-Type':  'application/json',
+                },
+                json={
+                    'from': TELNYX_FROM,
+                    'to':   TELNYX_TO,
+                    'text': body[:160],   # standard SMS limit
+                },
+                timeout=8
+            )
+        except Exception as e:
+            app.logger.warning(f'SMS failed: {e}')
+    threading.Thread(target=_send, daemon=True).start()
 
 def _send_email_notify(subject, body, attach_path=None):
-    """Send a notification email to SMTP_TO. Non-blocking — runs in background thread."""
+    """Send a notification email to SMTP_TO. Non-blocking."""
     if not SMTP_HOST:
         return
     import threading, smtplib, ssl
@@ -634,11 +680,17 @@ def _send_email_notify(subject, body, attach_path=None):
             app.logger.warning(f'Email notify failed: {e}')
     threading.Thread(target=_send, daemon=True).start()
 
+def _notify(subject, body, sms=None):
+    """Send both email + SMS. sms= short version for text, defaults to first 155 chars."""
+    _send_email_notify(subject, body)
+    _send_sms(sms or (subject + ' — ' + body[:100]))
+
 def _notify_login(ip):
-    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')
-    _send_email_notify(
-        f'🔑 SOC Login — {ip} at {now}',
-        f'Successful login to SomoShield SOC Dashboard.\n\nIP: {ip}\nTime: {now}\n\nIf this was not you, change your password immediately.\n\n-- Somo Technologies SOC'
+    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    _notify(
+        f'🔑 SOC Login — {ip}',
+        f'Successful login to SomoShield SOC.\n\nIP: {ip}\nTime: {now}\n\nIf this was not you, change your password immediately.\n\n-- Somo Technologies',
+        sms=f'SomoShield: Login from {ip} at {now}'
     )
 
 # ─── CrowdSec geo cache ────────────────────────────────────────────────────────
@@ -652,15 +704,25 @@ def _get_crowdsec_geopoints():
     if _crowdsec_geo_cache['points'] is not None and now - _crowdsec_geo_cache['ts'] < _CROWDSEC_GEO_TTL:
         return _crowdsec_geo_cache['points']
     try:
+        # Try active decisions first; fall back to recent alerts if empty
         r = requests.get(f"{CROWDSEC_URL}/v1/decisions?type=ban&limit=500",
                          headers={'X-Api-Key': CROWDSEC_API_KEY}, timeout=5)
-        if r.status_code != 200:
-            return []
-        decisions = r.json() or []
+        decisions = r.json() if r.status_code == 200 else None
+        if not decisions:
+            # No active bans — pull from alerts history instead
+            ra = requests.get(f"{CROWDSEC_URL}/v1/alerts?limit=500",
+                              headers={'X-Api-Key': CROWDSEC_API_KEY}, timeout=5)
+            alerts = ra.json() if ra.status_code == 200 else []
+            decisions = []
+            for alert in (alerts or []):
+                for dec in (alert.get('decisions') or []):
+                    dec['scenario'] = alert.get('scenario', dec.get('scenario', ''))
+                    decisions.append(dec)
+        decisions = decisions or []
         seen = {}
         for d in decisions:
             ip = d.get('value', '')
-            if ip and d.get('scope') == 'Ip' and ip not in seen:
+            if ip and d.get('scope', 'Ip') == 'Ip' and ip not in seen:
                 seen[ip] = d
         ips = list(seen.keys())[:150]
         if not ips:
@@ -724,6 +786,8 @@ _SUBNET_EXEMPT = {
     '/api/restic/register', '/api/restic/mycreds',
     '/api/onboard/provision', '/api/agent/check',
     '/agent.ps1',
+    '/api/sms/inbound',  # Telnyx webhook — comes from Telnyx servers, not LAN
+    '/api/support/request',  # clients submit support requests from outside LAN
 }
 
 # In-memory cache for AI evaluation (avoid hammering the API)
@@ -884,7 +948,7 @@ def mfa_verify():
         if secret and pyotp.TOTP(secret).verify(code, valid_window=2):
             session.pop('mfa_pending', None)
             session['logged_in'] = True
-            _notify_login(ip)
+            _notify_login(_real_client_ip())
             return redirect(url_for('index'))
         error = 'Invalid code — try again'
     return render_template('mfa.html', error=error)
@@ -1736,6 +1800,8 @@ def rmm_tool():
     cmd_id = c.lastrowid
     conn.commit()
     conn.close()
+    # Push instantly via WebSocket if agent is live — no waiting for next HTTP poll
+    _ws_agent_push_cmd(agent_id, cmd_id, cmd)
     return jsonify({'ok': True, 'cmd_id': cmd_id, 'tool': tool})
 
 @app.route('/api/rmm/cmd/<int:cmd_id>')
@@ -1756,9 +1822,9 @@ def rmm_cmd_result(cmd_id):
 def api_wazuh_geoalerts():
     """Return top attack sources with geo data + US-focused recent alerts for the threat map."""
     try:
-        hours = max(1, min(720, int(request.args.get('hours', 24))))
+        hours = max(1, min(8760, int(request.args.get('hours', 336))))
     except (ValueError, TypeError):
-        hours = 24
+        hours = 336
     try:
         query = {
             "size": 0,
@@ -3850,6 +3916,20 @@ def _init_clients_meta():
 _init_clients_meta()
 
 
+@app.route('/api/clients', methods=['GET'])
+@login_required
+def api_clients_list():
+    """Unified client list — returns all known client names from clients_meta
+    PLUS any client names seen in agents table that aren't already there.
+    Used by every dropdown in the dashboard."""
+    conn = db_conn()
+    meta_clients = {r[0] for r in conn.execute("SELECT client FROM clients_meta WHERE client IS NOT NULL AND client != ''").fetchall()}
+    agent_clients = {r[0] for r in conn.execute("SELECT DISTINCT client FROM agents WHERE client IS NOT NULL AND client != ''").fetchall()}
+    all_clients = sorted(meta_clients | agent_clients)
+    conn.close()
+    return jsonify(all_clients)
+
+
 @app.route('/api/clients/meta', methods=['GET'])
 @login_required
 def api_clients_meta_list():
@@ -5789,12 +5869,53 @@ _orig_rmm_command = None  # resolved after function definition
 # ── Background alert monitor ──────────────────────────────────────────────────
 
 _monitor_state = {
-    'last_ts': None,          # ISO timestamp of last alert we processed
-    'last_email_ts': 0,       # unix time of last email sent
-    'last_ntfy_ts': 0,        # unix time of last ntfy push sent
-    'email_cooldown': 300,    # 5 min between emails
-    'ntfy_cooldown': 120,     # 2 min between push notifications
+    'last_ts': None,           # ISO timestamp of last alert we processed
+    'last_email_ts': 0,
+    'last_ntfy_ts': 0,
+    'last_sms_ts': 0,
+    'email_cooldown': 300,     # 5 min between batch emails
+    'ntfy_cooldown': 120,
+    'sms_cooldown': 300,       # 5 min between SMS batches (don't spam cell)
+    'seen_rule_ts': {},        # {rule_id: last_notified_ts} — dedup noise rules
 }
+
+# ── Alert tuning — based on real observed traffic ─────────────────────────────
+# Rules that are pure Windows/AD noise — still shown in dashboard but suppressed
+# from email/SMS notifications. These all fire constantly on healthy systems.
+_NOISE_RULES = {
+    '100307',   # SYSTEM privilege assigned — fires every Windows service start
+    '60137',    # Windows User Logoff — informational
+    '86601',    # Suricata ET INFO — ip-api.com calls (that's US doing geoip lookups)
+    '60775',    # Windows service unavailable to handle notification — benign
+}
+
+# Machine accounts (ending in $) getting privileges is normal AD Kerberos behavior.
+# We only care when HUMAN accounts get unexpected privileges.
+_MACHINE_ACCOUNT_RULES = {'100308'}  # only noise when user ends in $
+
+# Rules that ALWAYS get immediate SMS regardless of cooldown (high-value detections)
+_ALWAYS_SMS_RULES = {
+    '100309',   # Explicit credentials used (runas/lateral movement indicator)
+    '533',      # New port opened on monitored host
+    '5710',     # Rootkit detection
+    '5712',     # Rootkit detection
+    '100200',   # Malware/VirusTotal hit
+    '87105',    # ClamAV detection
+    '100100',   # Windows Defender detection
+    '61138',    # Brute force — too many auth failures
+    '2932',     # Shellshock attempt
+    '31101',    # Web attack SQL injection
+    '31103',    # Web attack XSS
+}
+
+# Minimum level threshold — alerts below this are silently ignored for notifications
+# (still visible in dashboard). Set to 7 based on real traffic analysis.
+_ALERT_NOTIFY_LEVEL = 7
+
+# Noise rules get a longer dedup window (30 min) before re-alerting
+# High-value rules get a shorter window (10 min)
+_NOISE_DEDUP_SECONDS  = 1800   # 30 min — suppress repeat noise
+_SIGNAL_DEDUP_SECONDS = 600    # 10 min — repeat genuine alerts
 
 def _auto_make_permanent():
     """Background task: silently convert all timed CrowdSec bans to permanent (-1s)."""
@@ -5853,109 +5974,183 @@ def _alert_monitor_loop():
 
 
 def _check_new_alerts():
+    """
+    Check Wazuh for new alerts. Smart filtering:
+    - Threshold L7+ (not L10 — we never saw a L10 in production)
+    - Suppresses known-noisy rules (SYSTEM priv, machine account logons, our own ip-api calls)
+    - Deduplicates: same rule_id won't re-fire for 30 min (noise) or 10 min (signal)
+    - Always-SMS rules bypass cooldowns (explicit creds, rootkit, malware, port changes)
+    - Email + SMS on actionable alerts
+    """
     import time as _time
     now = datetime.utcnow()
     state = _monitor_state
+    now_ts = _time.time()
 
-    # On first run, set baseline to now (don't flood with old alerts)
     if state['last_ts'] is None:
         state['last_ts'] = now.strftime('%Y-%m-%dT%H:%M:%SZ')
         app.logger.info(f'Alert monitor baseline set: {state["last_ts"]}')
         return
 
+    # Use correct field name (timestamp, not @timestamp) and correct index pattern
     query = {
-        'size': 20,
-        'sort': [{'@timestamp': {'order': 'asc'}}],
+        'size': 50,
+        'sort': [{'timestamp': {'order': 'asc'}}],
         'query': {'bool': {'must': [
-            {'range': {'rule.level': {'gte': 10}}},
-            {'range': {'@timestamp': {'gt': state['last_ts']}}}
+            {'range': {'rule.level': {'gte': _ALERT_NOTIFY_LEVEL}}},
+            {'range': {'timestamp': {'gt': state['last_ts']}}}
         ]}}
     }
     try:
-        r = requests.post(f"{WAZUH_URL}/wazuh-alerts-4.x-*/_search",
-            auth=(WAZUH_USER, WAZUH_PASS), json=query, verify=WAZUH_CA, timeout=10)
-        hits = r.json().get('hits', {}).get('hits', []) if r.status_code == 200 else []
-    except Exception:
+        r = requests.post(f"{WAZUH_URL}/wazuh-alerts-*/_search",
+            auth=(WAZUH_USER, WAZUH_PASS), json=query, verify=WAZUH_CA, timeout=15)
+        if r.status_code != 200:
+            app.logger.warning(f'Alert check HTTP {r.status_code}')
+            return
+        hits = r.json().get('hits', {}).get('hits', [])
+    except Exception as e:
+        app.logger.warning(f'Alert check error: {e}')
         return
 
     if not hits:
         return
 
-    # Update last seen timestamp
-    last_hit_ts = hits[-1]['_source'].get('@timestamp', state['last_ts'])
-    state['last_ts'] = last_hit_ts
+    # Advance our timestamp cursor
+    last_ts = hits[-1]['_source'].get('timestamp', state['last_ts'])
+    state['last_ts'] = last_ts
 
-    # Build summary lines
-    alert_lines = []
-    crit_alerts = []
+    actionable   = []   # alerts we will email about
+    immediate_sms = []  # alerts needing instant SMS
+    seen_rules = state['seen_rule_ts']
+
     for h in hits:
-        s = h['_source']
-        lvl   = s.get('rule', {}).get('level', 0)
-        desc  = s.get('rule', {}).get('description', '?')
+        s     = h['_source']
+        rule  = s.get('rule', {})
+        lvl   = int(rule.get('level', 0))
+        rid   = str(rule.get('id', '?'))
+        desc  = rule.get('description', '?')
         agent = s.get('agent', {}).get('name', '?')
         srcip = s.get('data', {}).get('srcip', '')
-        ts    = s.get('@timestamp', '')[:19].replace('T', ' ')
-        line  = f"[L{lvl}] {desc} | host={agent}" + (f" | src={srcip}" if srcip else "") + f" | {ts}"
-        alert_lines.append(line)
-        if lvl >= 12:
-            crit_alerts.append({'lvl': lvl, 'desc': desc, 'agent': agent, 'srcip': srcip})
+        ts    = s.get('timestamp', '')[:19].replace('T', ' ')
+        groups = rule.get('groups', [])
+        win   = s.get('data', {}).get('win', {}) or {}
+        evtdata = win.get('eventdata', {}) or {}
+        user  = (evtdata.get('subjectUserName') or evtdata.get('targetUserName') or
+                 evtdata.get('targetUserName', '')).strip()
 
-    alert_text = '\n'.join(alert_lines)
-    count = len(hits)
-    crit_count = len(crit_alerts)
+        # ── Noise suppression ────────────────────────────────────────────────
+        # 1. Pure noise rules — skip entirely for notifications
+        if rid in _NOISE_RULES:
+            continue
 
-    # ── Push notification (ntfy) for level 12+ ──
-    now_ts = _time.time()
-    if crit_alerts and NTFY_TOPIC and (now_ts - state['last_ntfy_ts']) > state['ntfy_cooldown']:
-        top = crit_alerts[0]
-        lvl_label = 'CRITICAL' if top['lvl'] >= 15 else 'HIGH'
-        push_title = f"🚨 {lvl_label}: {top['desc'][:60]}"
-        push_body  = f"Host: {top['agent']}"
+        # 2. Machine account privilege rules — skip when user ends in $ (AD computer)
+        if rid in _MACHINE_ACCOUNT_RULES and user.endswith('$'):
+            continue
+
+        # 3. Suricata ET INFO — skip all info-level IDS noise
+        if 'suricata' in groups and lvl < 8:
+            continue
+
+        # ── Deduplication ────────────────────────────────────────────────────
+        dedup_key = f"{rid}:{agent}"  # per-rule per-host dedup
+        is_always_sms = rid in _ALWAYS_SMS_RULES
+        dedup_window = _SIGNAL_DEDUP_SECONDS if is_always_sms or lvl >= 9 else _NOISE_DEDUP_SECONDS
+
+        last_seen = seen_rules.get(dedup_key, 0)
+        if now_ts - last_seen < dedup_window and not is_always_sms:
+            continue  # already notified recently for this rule+host combo
+
+        seen_rules[dedup_key] = now_ts
+
+        alert = {
+            'lvl': lvl, 'rid': rid, 'desc': desc, 'agent': agent,
+            'srcip': srcip, 'ts': ts, 'user': user, 'groups': groups,
+            'is_always_sms': is_always_sms
+        }
+        actionable.append(alert)
+        if is_always_sms or lvl >= 9:
+            immediate_sms.append(alert)
+
+    if not actionable:
+        return
+
+    app.logger.info(f'Alert monitor: {len(actionable)} actionable alerts after filtering')
+
+    # ── Immediate SMS for high-priority alerts ────────────────────────────────
+    if immediate_sms and (now_ts - state['last_sms_ts']) > state['sms_cooldown']:
+        top = immediate_sms[0]
+        lvl_label = {15:'CRITICAL',12:'HIGH',9:'WARNING'}.get(
+            15 if top['lvl']>=15 else 12 if top['lvl']>=12 else 9, 'ALERT')
+        sms_parts = [f"SomoShield {lvl_label}: {top['desc'][:55]}"]
+        sms_parts.append(f"Host: {top['agent']}")
+        if top['user'] and not top['user'].endswith('$'):
+            sms_parts.append(f"User: {top['user']}")
         if top['srcip']:
-            push_body += f" | Src: {top['srcip']}"
-        if crit_count > 1:
-            push_body += f"\n+{crit_count-1} more high-severity alert(s)"
-        push_body += f"\n→ soc.somotechs.com/alerts"
-        priority = 'urgent' if top['lvl'] >= 15 else 'high'
-        tags = ['rotating_light', 'computer'] if top['lvl'] >= 15 else ['warning', 'computer']
-        _send_ntfy(push_title, push_body, priority=priority, tags=tags)
-        state['last_ntfy_ts'] = now_ts
-        app.logger.info(f'ntfy push sent: {push_title}')
+            sms_parts.append(f"Src: {top['srcip']}")
+        if len(immediate_sms) > 1:
+            sms_parts.append(f"+{len(immediate_sms)-1} more alerts")
+        sms_parts.append("soc.somotechs.com/alerts")
+        _send_sms('\n'.join(sms_parts))
+        state['last_sms_ts'] = now_ts
+        app.logger.info(f'SMS alert sent for {top["rid"]} on {top["agent"]}')
 
-    # ── Email with AI remediation ──
+    # ── Email batch — every 5 min max ─────────────────────────────────────────
     if (now_ts - state['last_email_ts']) > state['email_cooldown']:
+        count     = len(actionable)
+        crit_count = sum(1 for a in actionable if a['lvl'] >= 12)
+        lvl_word  = 'CRITICAL' if crit_count else ('HIGH' if any(a['lvl']>=9 for a in actionable) else 'MEDIUM')
+        subject   = f"🚨 SomoShield Alert: {count} actionable event(s) [{lvl_word}]"
+
+        alert_text = '\n'.join(
+            f"[L{a['lvl']}] [{a['rid']}] {a['desc']} | host={a['agent']}"
+            + (f" user={a['user']}" if a['user'] and not a['user'].endswith('$') else '')
+            + (f" src={a['srcip']}" if a['srcip'] else '')
+            + f" | {a['ts']}"
+            for a in actionable
+        )
         ai_text = _ai_remediation(alert_text)
-        lvl_word = 'CRITICAL' if crit_count else 'HIGH'
-        subject  = f"🚨 SomoShield Alert: {count} new {lvl_word} event(s) detected"
+
+        def _lvl_color(lv):
+            if lv >= 12: return '#f87171'
+            if lv >= 9:  return '#fb923c'
+            if lv >= 7:  return '#facc15'
+            return '#94a3b8'
+
+        rows_html = ''.join(
+            f'''<tr>
+              <td style="padding:5px 10px;border-bottom:1px solid rgba(255,255,255,.06)">
+                <span style="background:{_lvl_color(a['lvl'])};color:#000;font-weight:700;font-size:10px;padding:2px 6px;border-radius:4px">L{a['lvl']}</span>
+              </td>
+              <td style="padding:5px 10px;font-family:monospace;font-size:12px;color:#e2e8f0;border-bottom:1px solid rgba(255,255,255,.06)">{a['desc'][:70]}</td>
+              <td style="padding:5px 10px;font-size:11px;color:#94a3b8;border-bottom:1px solid rgba(255,255,255,.06)">{a['agent']}</td>
+              <td style="padding:5px 10px;font-size:11px;color:#64748b;border-bottom:1px solid rgba(255,255,255,.06)">{a['ts']}</td>
+            </tr>'''
+            for a in actionable
+        )
 
         ai_section = ''
         if ai_text:
-            ai_section = f"""
+            ai_section = f'''
             <div style="background:#0d1420;border:1px solid rgba(29,111,255,.2);border-radius:10px;padding:16px 20px;margin-top:16px;">
               <div style="font-size:11px;font-weight:700;color:#60a5fa;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;">🤖 AI Remediation Analysis</div>
               <div style="font-size:13px;color:#c8d0e0;white-space:pre-wrap;line-height:1.7;">{ai_text}</div>
-            </div>"""
-
-        rows_html = ''.join(
-            f'<tr><td style="padding:6px 10px;font-family:monospace;font-size:12px;color:#f87171;border-bottom:1px solid rgba(255,255,255,.06)">{l}</td></tr>'
-            for l in alert_lines
-        )
+            </div>'''
 
         html_body = f"""<!DOCTYPE html><html><body style="background:#080c14;color:#e8eaf0;font-family:Inter,Arial,sans-serif;padding:0;margin:0;">
-<div style="max-width:680px;margin:0 auto;padding:24px 16px;">
+<div style="max-width:720px;margin:0 auto;padding:24px 16px;">
   <div style="background:linear-gradient(135deg,#1D6FFF,#8b5cf6);border-radius:12px;padding:20px 24px;margin-bottom:20px;">
-    <div style="font-size:20px;font-weight:800;color:#fff;">🛡️ SomoShield Alert</div>
-    <div style="font-size:13px;color:rgba(255,255,255,.75);margin-top:4px;">{count} new high-severity event(s) · {now.strftime('%Y-%m-%d %H:%M')} UTC</div>
+    <div style="font-size:20px;font-weight:800;color:#fff;">🛡️ SomoShield Security Alert</div>
+    <div style="font-size:13px;color:rgba(255,255,255,.75);margin-top:4px;">{count} actionable event(s) · {now.strftime('%Y-%m-%d %H:%M')} UTC · Noise filtered</div>
   </div>
   <div style="background:#0e1420;border:1px solid rgba(255,255,255,.07);border-radius:10px;overflow:hidden;margin-bottom:16px;">
-    <div style="padding:10px 16px;border-bottom:1px solid rgba(255,255,255,.07);font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.8px;">Alert Summary</div>
+    <div style="padding:10px 16px;border-bottom:1px solid rgba(255,255,255,.07);font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.8px;">Alert Details</div>
     <table style="width:100%;border-collapse:collapse;">{rows_html}</table>
   </div>
   {ai_section}
   <div style="margin-top:20px;text-align:center;">
-    <a href="https://soc.somotechs.com/alerts" style="background:linear-gradient(135deg,#1D6FFF,#8b5cf6);color:#fff;text-decoration:none;padding:10px 24px;border-radius:8px;font-weight:700;font-size:13px;">View in SOC Dashboard →</a>
+    <a href="https://soc.somotechs.com/alerts" style="background:linear-gradient(135deg,#1D6FFF,#8b5cf6);color:#fff;text-decoration:none;padding:11px 28px;border-radius:8px;font-weight:700;font-size:13px;">View in SOC Dashboard →</a>
   </div>
-  <div style="margin-top:20px;font-size:10px;color:#475569;text-align:center;">SomoTechs Security Operations · soc.somotechs.com</div>
+  <div style="margin-top:16px;font-size:10px;color:#475569;text-align:center;">SomoTechs Security Operations · soc.somotechs.com · Noise-filtered alerts only</div>
 </div></body></html>"""
 
         _send_alert_email(subject, html_body)
@@ -6249,13 +6444,31 @@ def _mesh_run(payload_list, timeout=8):
 @app.route('/api/mesh/remote/<hostname>')
 @login_required
 def api_mesh_remote(hostname):
-    """Return a direct MeshCentral URL for a device by hostname."""
+    """Look up a device in MeshCentral by hostname and return a direct remote-desktop URL."""
     if not hostname or len(hostname) > 128:
         return jsonify({'error': 'invalid hostname'}), 400
     import urllib.parse
+    # Try to find the node in MeshCentral for a direct RDP link
+    try:
+        msgs = _mesh_run([{'action': 'nodes'}], timeout=6)
+        for msg in msgs:
+            if msg.get('action') != 'nodes':
+                continue
+            for mesh_id, nodes in (msg.get('nodes') or {}).items():
+                for node in (nodes or []):
+                    node_name = (node.get('name') or '').lower().strip()
+                    if node_name == hostname.lower().strip():
+                        node_id = node.get('_id', '')
+                        if node_id:
+                            safe_id = urllib.parse.quote(node_id, safe='')
+                            # viewmode=11 opens remote desktop tab directly
+                            url = f"{MESH_URL}/?viewmode=11&nodeId={safe_id}"
+                            return jsonify({'url': url, 'nodeId': node_id})
+    except Exception as e:
+        app.logger.warning(f'MeshCentral node lookup failed: {e}')
+    # Fallback: search page
     safe = urllib.parse.quote(hostname, safe='')
-    url = f"{MESH_URL}/?search={safe}"
-    return jsonify({'url': url})
+    return jsonify({'url': f"{MESH_URL}/?search={safe}", 'fallback': True})
 
 @app.route('/api/mesh/groups', methods=['GET'])
 @login_required
@@ -6318,6 +6531,98 @@ def api_mesh_groups_create():
             'responseid': 'addadmin'
         }], timeout=5)
     return jsonify({'ok': True, 'name': name, 'meshid': new_meshid})
+
+# ── Support Requests ──────────────────────────────────────────────────────────
+
+def _init_support_requests():
+    conn = db_conn()
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS support_requests (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            client      TEXT,
+            hostname    TEXT,
+            description TEXT,
+            status      TEXT DEFAULT 'open',
+            created_at  TEXT DEFAULT CURRENT_TIMESTAMP,
+            resolved_at TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+_init_support_requests()
+
+@app.route('/api/support/request', methods=['POST'])
+def api_support_request():
+    """Client or portal submits a quick support request. No login required (portal token auth)."""
+    d = request.get_json(silent=True) or {}
+    client   = str(d.get('client','')).strip()[:60]
+    hostname = str(d.get('hostname','')).strip()[:60]
+    desc     = str(d.get('description','No details provided')).strip()[:500]
+    pt       = d.get('pt','')  # portal token for auth from client portal
+
+    # validate: either logged in OR valid portal token
+    if not session.get('user'):
+        if pt:
+            conn = db_conn()
+            row = conn.execute("SELECT client FROM portal_tokens WHERE token=?", (pt,)).fetchone()
+            conn.close()
+            if not row:
+                return jsonify({'ok': False, 'error': 'unauthorized'}), 403
+            if not client:
+                client = row[0]
+        else:
+            return jsonify({'ok': False, 'error': 'unauthorized'}), 403
+
+    conn = db_conn()
+    conn.execute(
+        "INSERT INTO support_requests (client, hostname, description) VALUES (?,?,?)",
+        (client, hostname, desc)
+    )
+    conn.commit()
+    req_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+    conn.close()
+
+    # notify Tony via SMS + email
+    who    = f"{client} / {hostname}" if hostname else client
+    msg    = f"[SomoTechs] Support request from {who}: {desc[:120]}"
+    mesh_link = f"{MESH_URL}/?search={urllib.parse.quote(hostname, safe='')}" if hostname else MESH_URL
+    _send_sms(msg)
+    _send_email(
+        subject=f"[Support Request] {who}",
+        body=(
+            f"<h2>New Support Request</h2>"
+            f"<p><b>Client:</b> {client}<br>"
+            f"<b>Device:</b> {hostname or 'unknown'}<br>"
+            f"<b>Request:</b> {desc}</p>"
+            f"<p><a href='{mesh_link}'>Connect via MeshCentral →</a></p>"
+        )
+    )
+    return jsonify({'ok': True, 'id': req_id})
+
+@app.route('/api/support/requests', methods=['GET'])
+@login_required
+def api_support_requests_list():
+    status = request.args.get('status', 'open')
+    conn = db_conn()
+    rows = conn.execute(
+        "SELECT id, client, hostname, description, status, created_at FROM support_requests WHERE status=? ORDER BY created_at DESC LIMIT 50",
+        (status,)
+    ).fetchall()
+    conn.close()
+    return jsonify([dict(r) for r in rows])
+
+@app.route('/api/support/requests/<int:req_id>/resolve', methods=['POST'])
+@login_required
+def api_support_request_resolve(req_id):
+    conn = db_conn()
+    conn.execute(
+        "UPDATE support_requests SET status='resolved', resolved_at=CURRENT_TIMESTAMP WHERE id=?",
+        (req_id,)
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True})
 
 # ── Start background monitor ──────────────────────────────────────────────────
 
@@ -6997,6 +7302,147 @@ def outreach_process_now():
 # Start email queue background thread
 import threading as _et
 _et.Thread(target=_email_queue_loop, daemon=True).start()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SMS CHAT — Two-way SMS via Telnyx. Clients text in, you reply from SOC.
+# Telnyx webhook URL: https://soc.somotechs.com/api/sms/inbound
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.route('/sms')
+@login_required
+def sms_page():
+    return render_template('sms.html')
+
+@app.route('/api/sms/inbound', methods=['POST'])
+def sms_inbound():
+    """Telnyx webhook — fires when someone texts your number."""
+    try:
+        data = request.get_json(force=True) or {}
+        # Telnyx v2 webhook envelope
+        payload = data.get('data', {}).get('payload', data)
+        from_num = payload.get('from', {}).get('phone_number') or payload.get('from','')
+        to_num   = payload.get('to',   [{}])[0].get('phone_number', '') if isinstance(payload.get('to'), list) else payload.get('to','')
+        body     = payload.get('text') or payload.get('body','')
+        if not from_num or not body:
+            return jsonify({'ok': True})   # ack but ignore malformed
+        # Look up contact name
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.row_factory = sqlite3.Row
+            contact = conn.execute('SELECT * FROM sms_contacts WHERE phone=?', (from_num,)).fetchone()
+            name   = contact['name']   if contact else from_num
+            client = contact['client'] if contact else ''
+            conn.execute('''INSERT INTO sms_messages
+                            (direction,from_num,to_num,body,contact_name,client,read)
+                            VALUES ("inbound",?,?,?,?,?,0)''',
+                         (from_num, to_num, body, name, client))
+            conn.commit()
+        # Email notify disabled — see soc.somotechs.com/sms for messages
+        # _send_email_notify(
+        #     f'📱 SMS from {name} ({from_num})',
+        #     f'From: {name} ({from_num})\nClient: {client or "unknown"}\n\n{body}\n\nReply at soc.somotechs.com/sms'
+        # )
+    except Exception as e:
+        app.logger.warning(f'SMS inbound error: {e}')
+    return jsonify({'ok': True})
+
+@app.route('/api/sms/messages')
+@login_required
+def sms_messages():
+    phone = request.args.get('phone', '')
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        if phone:
+            rows = conn.execute(
+                'SELECT * FROM sms_messages WHERE from_num=? OR to_num=? ORDER BY created_at',
+                (phone, phone)).fetchall()
+            conn.execute('UPDATE sms_messages SET read=1 WHERE from_num=? AND read=0', (phone,))
+        else:
+            # Conversation list — latest per number
+            rows = conn.execute('''
+                SELECT m.*, MAX(m.created_at) as last_msg
+                FROM sms_messages m
+                GROUP BY CASE WHEN m.direction="inbound" THEN m.from_num ELSE m.to_num END
+                ORDER BY last_msg DESC''').fetchall()
+        conn.commit()
+    return jsonify([dict(r) for r in rows])
+
+@app.route('/api/sms/unread')
+@login_required
+def sms_unread():
+    with sqlite3.connect(DB_PATH) as conn:
+        count = conn.execute(
+            'SELECT COUNT(*) FROM sms_messages WHERE read=0 AND direction="inbound"').fetchone()[0]
+    return jsonify({'unread': count})
+
+@app.route('/api/sms/send', methods=['POST'])
+@login_required
+def sms_send():
+    d = request.get_json(force=True)
+    to   = d.get('to','').strip()
+    body = d.get('body','').strip()
+    if not to or not body:
+        return jsonify({'ok': False, 'error': 'to and body required'}), 400
+    if not (TELNYX_API_KEY and TELNYX_FROM):
+        return jsonify({'ok': False, 'error': 'Telnyx not configured — add TELNYX_API_KEY and TELNYX_FROM to .env'}), 400
+    try:
+        r = requests.post(
+            'https://api.telnyx.com/v2/messages',
+            headers={'Authorization': f'Bearer {TELNYX_API_KEY}', 'Content-Type': 'application/json'},
+            json={'from': TELNYX_FROM, 'to': to, 'text': body},
+            timeout=8
+        )
+        r.raise_for_status()
+        # Look up contact
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.row_factory = sqlite3.Row
+            contact = conn.execute('SELECT name,client FROM sms_contacts WHERE phone=?', (to,)).fetchone()
+            name   = contact['name']   if contact else to
+            client = contact['client'] if contact else ''
+            conn.execute('''INSERT INTO sms_messages
+                            (direction,from_num,to_num,body,contact_name,client,read)
+                            VALUES ("outbound",?,?,?,?,?,1)''',
+                         (TELNYX_FROM, to, body, name, client))
+            conn.commit()
+        return jsonify({'ok': True})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+@app.route('/api/sms/contacts', methods=['GET'])
+@login_required
+def sms_contacts_get():
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute('SELECT * FROM sms_contacts ORDER BY name').fetchall()
+    return jsonify([dict(r) for r in rows])
+
+@app.route('/api/sms/contacts', methods=['POST'])
+@login_required
+def sms_contacts_add():
+    d = request.get_json(force=True)
+    phone  = d.get('phone','').strip()
+    name   = d.get('name','').strip()
+    client = d.get('client','').strip()
+    if not phone or not name:
+        return jsonify({'ok': False, 'error': 'phone and name required'}), 400
+    if not phone.startswith('+'):
+        phone = '+1' + phone.replace('-','').replace('(','').replace(')','').replace(' ','')
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.execute('INSERT INTO sms_contacts (phone,name,client) VALUES (?,?,?)',
+                         (phone, name, client))
+            conn.commit()
+        return jsonify({'ok': True})
+    except sqlite3.IntegrityError:
+        return jsonify({'ok': False, 'error': 'number already exists'}), 409
+
+@app.route('/api/sms/contacts/<int:cid>', methods=['DELETE'])
+@login_required
+def sms_contacts_delete(cid):
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute('DELETE FROM sms_contacts WHERE id=?', (cid,))
+        conn.commit()
+    return jsonify({'ok': True})
 
 
 if __name__ == '__main__':
