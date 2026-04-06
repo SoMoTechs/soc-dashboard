@@ -913,12 +913,14 @@ function _updateClientFilter(data){
   // Merge all known clients from central list
   fetch('/api/clients').then(r=>r.json()).then(all=>{
     const clients=[...new Set([...fromAgents,...all])].sort();
+    window._clientList = clients;
     sel.innerHTML='<option value="">All Clients</option>'+
       clients.map(c=>`<option value="${esc(c)}"${c===cur?' selected':''}>${esc(c)}</option>`).join('');
     const dl=document.getElementById('client-names-list');
     if(dl)dl.innerHTML=clients.map(c=>`<option value="${esc(c)}">`).join('');
   }).catch(()=>{
     const clients=[...fromAgents].sort();
+    window._clientList = clients;
     sel.innerHTML='<option value="">All Clients</option>'+
       clients.map(c=>`<option value="${esc(c)}"${c===cur?' selected':''}>${esc(c)}</option>`).join('');
     const dl=document.getElementById('client-names-list');
@@ -970,6 +972,11 @@ function renderTable(data){
         <button class="btn-mesh" onclick="openMeshRemote('${esc(a.hostname||'')}',this)" title="Remote Desktop via MeshCentral">🖥 Remote</button>
         <button class="btn-rdp" onclick="openRemoteDesktopFor('${esc(a.hostname||'')}',this)" title="Remote Desktop via Action1">🖥</button>
         <button class="btn-av" id="av-btn-${esc(a.hostname||a.id)}" onclick="runAVScan('${esc(a.hostname||'')}',this)" title="Run Defender scan">${avBadge(a.hostname)}</button>
+        <select onchange="reassignAgent('${a.id}',this.value,this)" title="Move to client"
+          style="font-size:10px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-muted);border-radius:5px;padding:2px 4px;cursor:pointer;margin-left:4px;max-width:100px;">
+          <option value="">📂 Client</option>
+          ${(window._clientList||[]).map(c=>`<option value="${esc(c)}" ${c===a.client?'selected':''}>${esc(c)}</option>`).join('')}
+        </select>
         <button class="btn-del" onclick="deleteAgent('${a.id}','${esc(a.hostname||'?')}')">Del</button>
       </td>
     </tr>`;
@@ -2147,6 +2154,27 @@ async function confirmMassCommand(){
 }
 
 /* ── AGENT MANAGEMENT ── */
+async function reassignAgent(agentId, newClient, sel){
+  const orig = sel.style.color;
+  sel.style.color = 'var(--amber)';
+  try{
+    const r = await fetch(`/api/rmm/assign/${encodeURIComponent(agentId)}`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({client: newClient})
+    });
+    if(r.ok){
+      sel.style.color = 'var(--green)';
+      toast(`Moved to ${newClient||'unassigned'}`,'ok');
+      setTimeout(()=>{ sel.style.color=orig; loadAgents(); }, 1200);
+    } else {
+      sel.style.color = 'var(--red)';
+      toast('Reassign failed','err');
+      setTimeout(()=>{ sel.style.color=orig; },1500);
+    }
+  }catch(e){ sel.style.color=orig; toast('Network error','err'); }
+}
+
 async function deleteAgent(agentId,hostname){
   if(!confirm(`Delete agent "${hostname}"?\n\nThis will remove all stored data and command history.`))return;
   try{

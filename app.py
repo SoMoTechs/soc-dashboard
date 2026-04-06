@@ -1682,6 +1682,18 @@ def api_crowdsec_search():
         return jsonify({'error': _sanitize_err(e)}), 500
     return jsonify([])
 
+@app.route('/api/rmm/assign/<agent_id>', methods=['POST'])
+@login_required
+def rmm_assign_agent(agent_id):
+    """Reassign an agent to a different client."""
+    d = request.get_json(silent=True) or {}
+    client = str(d.get('client', '')).strip()[:60]
+    conn = db_conn()
+    conn.execute('UPDATE agents SET client=? WHERE id=?', (client, agent_id))
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True})
+
 @app.route('/api/rmm/delete/<agent_id>', methods=['DELETE'])
 @login_required
 def rmm_delete_agent(agent_id):
