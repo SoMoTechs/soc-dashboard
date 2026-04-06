@@ -922,7 +922,13 @@ body.sb-collapsed .sb-live{justify-content:center;}
       <div class="posture-metric"><b id="posture-blocked">--</b> threats neutralized</div>
       <div class="posture-metric"><b id="posture-endpoints">--</b> endpoints monitored</div>
     </div>
-    <div class="posture-badge" id="posture-badge">Systems Protected</div>
+    <div style="display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0;">
+      <div style="text-align:right;">
+        <div style="font-size:9px;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.5px;">Security Score</div>
+        <div id="posture-score" style="font-size:22px;font-weight:700;color:var(--green);line-height:1.1;">--</div>
+      </div>
+      <div class="posture-badge" id="posture-badge">Systems Protected</div>
+    </div>
   </div>
 
   <!-- THREAT FEED BAR -->
@@ -1253,6 +1259,16 @@ function updatePosture(high,total,blocked,endpoints){
   document.getElementById('posture-events').textContent=total.toLocaleString();
   document.getElementById('posture-blocked').textContent=blocked.toLocaleString();
   document.getElementById('posture-endpoints').textContent=endpoints;
+  // Calculate a 0–100 security score
+  const scoreEl=document.getElementById('posture-score');
+  if(scoreEl){
+    let score=100;
+    score -= Math.min(40, Math.floor(high * 0.8));
+    score -= Math.min(20, Math.floor((total - high) * 0.05));
+    score = Math.max(10, score);
+    scoreEl.textContent=score;
+    scoreEl.style.color = score>=80?'var(--green)':score>=60?'var(--amber)':'var(--red)';
+  }
   if(high>50){
     label.textContent='Elevated Threat';label.className='posture-label crit';
     badge.textContent='Threat Detected';badge.className='posture-badge crit';
