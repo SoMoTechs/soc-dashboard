@@ -5,8 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SomoTechs SOC — RMM Agents</title>
-  <link rel="stylesheet" href="/static/themes.css">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#06070c;
@@ -37,8 +36,6 @@
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 html,body{height:100%;}
-body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(circle,rgba(29,111,255,.04) 1px,transparent 1px);background-size:32px 32px;pointer-events:none;z-index:0;}
-body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 60% 50% at 0% 0%,rgba(29,111,255,.06) 0%,transparent 60%),radial-gradient(ellipse 40% 40% at 100% 100%,rgba(59,130,246,.04) 0%,transparent 55%);pointer-events:none;z-index:0;}
 body{
   background:var(--bg);
   background-image:radial-gradient(ellipse 80% 60% at 10% 30%,rgba(99,102,241,.07) 0%,transparent 60%),radial-gradient(ellipse 60% 40% at 90% 80%,rgba(59,130,246,.04) 0%,transparent 50%);
@@ -165,7 +162,7 @@ tbody tr:last-child td{border-bottom:none;}
 .btn-av.threat{color:var(--red);border-color:rgba(239,68,68,.3);background:rgba(239,68,68,.08);}
 @keyframes av-pulse{0%,100%{opacity:1;}50%{opacity:.55;}}
 /* AV toast panel */
-.av-toast{position:fixed;bottom:24px;right:24px;min-width:280px;max-width:380px;background:var(--surface-3);border:1px solid var(--border-2);border-radius:12px;padding:14px 16px;z-index:999;box-shadow:0 8px 32px rgba(0,0,0,.55);display:none;font-size:12px;}
+.av-toast{position:fixed;bottom:24px;right:24px;min-width:280px;max-width:380px;background:var(--surface-3);border:1px solid var(--border-2);border-radius:10px;padding:14px 16px;z-index:999;box-shadow:0 8px 32px rgba(0,0,0,.55);display:none;font-size:12px;}
 .av-toast.show{display:block;}
 .av-toast-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;font-weight:600;font-size:13px;}
 .av-toast-close{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:16px;line-height:1;padding:0;}
@@ -398,15 +395,7 @@ tbody tr:last-child td{border-bottom:none;}
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       Sign Out
     </a>
-  </nav><div style="display:flex;flex-wrap:wrap;gap:3px;">
-        <button onclick="setTheme('midnight')" data-t="midnight" style="font-size:7px;padding:2px 4px;border-radius:2px;border:1px solid rgba(255,255,255,.15);background:transparent;color:var(--text-muted);cursor:pointer;letter-spacing:.5px;font-family:monospace;text-transform:uppercase">Dark</button>
-        <button onclick="setTheme('cyber')" data-t="cyber" style="font-size:7px;padding:2px 4px;border-radius:2px;border:1px solid rgba(255,255,255,.15);background:transparent;color:var(--text-muted);cursor:pointer;letter-spacing:.5px;font-family:monospace;text-transform:uppercase">Cybr</button>
-        <button onclick="setTheme('matrix')" data-t="matrix" style="font-size:7px;padding:2px 4px;border-radius:2px;border:1px solid rgba(255,255,255,.15);background:transparent;color:var(--text-muted);cursor:pointer;letter-spacing:.5px;font-family:monospace;text-transform:uppercase">Mtrx</button>
-        <button onclick="setTheme('slate')" data-t="slate" style="font-size:7px;padding:2px 4px;border-radius:2px;border:1px solid rgba(255,255,255,.15);background:transparent;color:var(--text-muted);cursor:pointer;letter-spacing:.5px;font-family:monospace;text-transform:uppercase">Slte</button>
-        <button onclick="setTheme('crimson')" data-t="crimson" style="font-size:7px;padding:2px 4px;border-radius:2px;border:1px solid rgba(255,255,255,.15);background:transparent;color:var(--text-muted);cursor:pointer;letter-spacing:.5px;font-family:monospace;text-transform:uppercase">Crim</button>
-        <button onclick="setTheme('solar')" data-t="solar" style="font-size:7px;padding:2px 4px;border-radius:2px;border:1px solid rgba(255,255,255,.15);background:transparent;color:var(--text-muted);cursor:pointer;letter-spacing:.5px;font-family:monospace;text-transform:uppercase">Solr</button>
-      </div>
-    </div>
+  </nav>
   <div class="sidebar-footer">
     <div class="live-badge"><div class="live-dot"></div>Live Feed</div>
     <div class="footer-ts" id="ts">--:--:-- UTC</div>
@@ -427,7 +416,7 @@ tbody tr:last-child td{border-bottom:none;}
         <div class="sstat"><div class="sstat-val amber" id="stat-offline">—</div><div class="sstat-lbl">Offline</div></div>
       </div>
       <button id="rmm-alerts-btn" onclick="openAlertsPanel()" style="position:relative;padding:5px 12px;font-size:11px;font-weight:600;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);color:var(--amber);border-radius:6px;cursor:pointer;transition:all .15s;" title="RMM Alerts">
-        🔔 Alerts <span id="rmm-alert-badge" style="display:none;background:var(--red);color:#fff;border-radius:12px;padding:1px 5px;font-size:9px;margin-left:4px;"></span>
+        🔔 Alerts <span id="rmm-alert-badge" style="display:none;background:var(--red);color:#fff;border-radius:10px;padding:1px 5px;font-size:9px;margin-left:4px;"></span>
       </button>
       <span class="refresh-badge" id="last-refresh">Last sync: —</span>
     </div>
@@ -2362,18 +2351,6 @@ startRefreshCycle();
 _loadAVStatus();
 loadRmmAlerts();
 setInterval(loadRmmAlerts, 60000);
-}
-(function(){
-  var t=localStorage.getItem('soc-theme')||'midnight';
-  if(t&&t!=='midnight')document.documentElement.setAttribute('data-theme',t);
-  document.addEventListener('DOMContentLoaded',function(){
-    document.querySelectorAll('[data-t]').forEach(b=>{
-      b.style.borderColor=b.dataset.t===t?'var(--accent)':'rgba(255,255,255,.15)';
-      b.style.color=b.dataset.t===t?'var(--accent)':'var(--text-muted)';
-    });
-  });
-})();
-
 </script>
 
 <!-- 2FA COMMAND GATE MODAL -->

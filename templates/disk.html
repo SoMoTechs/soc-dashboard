@@ -5,8 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Disk Health — SomoTechs SOC</title>
-  <link rel="stylesheet" href="/static/themes.css">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#080c14;--surface:#0e1420;--surface-2:#141b29;--surface-3:#1a2235;
@@ -30,11 +29,11 @@ body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse
 .sidebar{width:var(--sidebar-w);background:linear-gradient(180deg,#07090f 0%,#050810 100%);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:50;}
 .sidebar-logo{padding:22px 18px 18px;border-bottom:1px solid var(--border);}
 .logo-mark{display:flex;align-items:center;gap:12px;}
-.logo-icon{width:36px;height:36px;flex-shrink:0;background:linear-gradient(135deg,#1D6FFF 0%,#8b5cf6 100%);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;color:white;box-shadow:0 0 0 1px rgba(29,111,255,.4),0 0 24px rgba(29,111,255,.4);}
+.logo-icon{width:36px;height:36px;flex-shrink:0;background:linear-gradient(135deg,#1D6FFF 0%,#8b5cf6 100%);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;color:white;box-shadow:0 0 0 1px rgba(29,111,255,.4),0 0 24px rgba(29,111,255,.4);}
 .logo-text{font-size:15px;font-weight:700;color:var(--text);letter-spacing:-.3px;}
 .logo-sub{font-size:10px;color:var(--text-subtle);margin-top:1px;letter-spacing:.5px;text-transform:uppercase;}
 .sidebar-nav{flex:1;padding:14px 10px;overflow-y:auto;}
-.nav-link{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:12px;color:var(--text-muted);text-decoration:none;font-size:13px;font-weight:500;transition:all .15s;margin-bottom:2px;border-left:2px solid transparent;}
+.nav-link{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;color:var(--text-muted);text-decoration:none;font-size:13px;font-weight:500;transition:all .15s;margin-bottom:2px;border-left:2px solid transparent;}
 .nav-link:hover{background:rgba(255,255,255,.04);color:var(--text);border-left-color:rgba(255,255,255,.12);}
 .nav-link.active{background:linear-gradient(90deg,rgba(29,111,255,.15) 0%,rgba(29,111,255,.05) 100%);color:#93C5FD;border-left-color:#1D6FFF;font-weight:600;}
 .nav-link.danger:hover{background:rgba(239,68,68,.1);color:var(--red);border-left-color:var(--red);}
@@ -90,7 +89,7 @@ body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse
 .drive-card.health-warn{border-color:rgba(245,158,11,.3);}
 
 .drive-header{padding:14px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);}
-.drive-badge{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;}
+.drive-badge{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;}
 .drive-badge.hdd{background:rgba(59,130,246,.12);box-shadow:inset 0 0 0 1px rgba(59,130,246,.2);}
 .drive-badge.ssd{background:rgba(139,92,246,.12);box-shadow:inset 0 0 0 1px rgba(139,92,246,.2);}
 .drive-badge.nvme{background:rgba(34,197,94,.12);box-shadow:inset 0 0 0 1px rgba(34,197,94,.2);}
@@ -133,7 +132,7 @@ body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse
 }
 
 /* REFRESH BTN */
-.refresh-btn{background:rgba(29,111,255,.12);border:1px solid rgba(29,111,255,.25);color:var(--blue-2);font-size:11px;font-weight:600;padding:5px 14px;border-radius:12px;cursor:pointer;transition:all .2s;font-family:'Inter',sans-serif;}
+.refresh-btn{background:rgba(29,111,255,.12);border:1px solid rgba(29,111,255,.25);color:var(--blue-2);font-size:11px;font-weight:600;padding:5px 14px;border-radius:8px;cursor:pointer;transition:all .2s;font-family:'Inter',sans-serif;}
 .refresh-btn:hover{background:rgba(29,111,255,.22);}
 
 /* EMPTY */
@@ -209,15 +208,7 @@ body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       Sign Out
     </a>
-  </nav><div style="display:flex;flex-wrap:wrap;gap:3px;">
-        <button onclick="setTheme('midnight')" data-t="midnight" style="font-size:7px;padding:2px 4px;border-radius:2px;border:1px solid rgba(255,255,255,.15);background:transparent;color:var(--text-muted);cursor:pointer;letter-spacing:.5px;font-family:monospace;text-transform:uppercase">Dark</button>
-        <button onclick="setTheme('cyber')" data-t="cyber" style="font-size:7px;padding:2px 4px;border-radius:2px;border:1px solid rgba(255,255,255,.15);background:transparent;color:var(--text-muted);cursor:pointer;letter-spacing:.5px;font-family:monospace;text-transform:uppercase">Cybr</button>
-        <button onclick="setTheme('matrix')" data-t="matrix" style="font-size:7px;padding:2px 4px;border-radius:2px;border:1px solid rgba(255,255,255,.15);background:transparent;color:var(--text-muted);cursor:pointer;letter-spacing:.5px;font-family:monospace;text-transform:uppercase">Mtrx</button>
-        <button onclick="setTheme('slate')" data-t="slate" style="font-size:7px;padding:2px 4px;border-radius:2px;border:1px solid rgba(255,255,255,.15);background:transparent;color:var(--text-muted);cursor:pointer;letter-spacing:.5px;font-family:monospace;text-transform:uppercase">Slte</button>
-        <button onclick="setTheme('crimson')" data-t="crimson" style="font-size:7px;padding:2px 4px;border-radius:2px;border:1px solid rgba(255,255,255,.15);background:transparent;color:var(--text-muted);cursor:pointer;letter-spacing:.5px;font-family:monospace;text-transform:uppercase">Crim</button>
-        <button onclick="setTheme('solar')" data-t="solar" style="font-size:7px;padding:2px 4px;border-radius:2px;border:1px solid rgba(255,255,255,.15);background:transparent;color:var(--text-muted);cursor:pointer;letter-spacing:.5px;font-family:monospace;text-transform:uppercase">Solr</button>
-      </div>
-    </div>
+  </nav>
   <div class="sidebar-footer">
     <div class="live-badge"><div class="live-dot"></div>Live</div>
     <div class="footer-ts" id="sidebar-ts">--:--:-- UTC</div>
@@ -423,18 +414,6 @@ function renderFS(fsList){
 
 loadData();
 setInterval(loadData, 120000);
-}
-(function(){
-  var t=localStorage.getItem('soc-theme')||'midnight';
-  if(t&&t!=='midnight')document.documentElement.setAttribute('data-theme',t);
-  document.addEventListener('DOMContentLoaded',function(){
-    document.querySelectorAll('[data-t]').forEach(b=>{
-      b.style.borderColor=b.dataset.t===t?'var(--accent)':'rgba(255,255,255,.15)';
-      b.style.color=b.dataset.t===t?'var(--accent)':'var(--text-muted)';
-    });
-  });
-})();
-
 </script>
 </body>
 </html>

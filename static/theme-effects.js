@@ -81,7 +81,7 @@
 
   /* ── theme switch ─────────────────────────────────── */
   function apply(theme) {
-    document.body.classList.remove('fx-matrix', 'fx-crimson', 'fx-solar', 'fx-slate', 'fx-cyber');
+    document.body.classList.remove('fx-matrix', 'fx-crimson', 'fx-solar', 'fx-slate');
     stopMatrix();
     if (theme === 'matrix') {
       document.body.classList.add('fx-matrix');
@@ -92,8 +92,6 @@
       document.body.classList.add('fx-solar');
     } else if (theme === 'slate') {
       document.body.classList.add('fx-slate');
-    } else if (theme === 'cyber') {
-      document.body.classList.add('fx-cyber');
     }
   }
 
