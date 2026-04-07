@@ -1897,17 +1897,84 @@ def api_wazuh_geoalerts():
                     'time':     hit.get('@timestamp', ''),
                     'us':       geo.get('country_name', '') == 'United States',
                 })
-            # Supplement with CrowdSec ban data when Wazuh has few geo events
+            # If few geo-tagged alerts, query for external IPs without GeoLocation field
+            # Use max(hours, 720) so we always find real attack IPs even if quiet lately
+            if len(points) < 10:
+                try:
+                    _ip_hours = max(hours, 720)
+                    ip_query = {
+                        "size": 0,
+                        "query": {"bool": {"must": [
+                            {"range": {"@timestamp": {"gte": f"now-{_ip_hours}h"}}},
+                            {"exists": {"field": "data.srcip"}}
+                        ], "must_not": [
+                            {"prefix": {"data.srcip": "10."}},
+                            {"prefix": {"data.srcip": "192.168."}},
+                            {"prefix": {"data.srcip": "172.16."}},
+                            {"prefix": {"data.srcip": "172.17."}},
+                            {"prefix": {"data.srcip": "172.18."}},
+                            {"prefix": {"data.srcip": "172.19."}},
+                            {"prefix": {"data.srcip": "172.20."}},
+                            {"prefix": {"data.srcip": "172.31."}},
+                            {"term":   {"data.srcip": "127.0.0.1"}},
+                            {"term":   {"data.srcip": "::1"}}
+                        ]}},
+                        "aggs": {
+                            "top_ips": {
+                                "terms": {"field": "data.srcip", "size": 150},
+                                "aggs": {"latest": {"top_hits": {"size": 1, "_source": [
+                                    "data.srcip", "rule.level", "rule.description",
+                                    "agent.name", "@timestamp"
+                                ]}}}
+                            }
+                        }
+                    }
+                    r2 = requests.post(f"{WAZUH_URL}/wazuh-alerts-4.x-*/_search",
+                        auth=(WAZUH_USER, WAZUH_PASS), json=ip_query, verify=WAZUH_CA, timeout=10)
+                    if r2.status_code == 200:
+                        ip_buckets = r2.json().get('aggregations', {}).get('top_ips', {}).get('buckets', [])
+                        existing_ips = {p['ip'] for p in points}
+                        ips_to_geo = [b['key'] for b in ip_buckets if b['key'] not in existing_ips]
+                        ip_meta = {b['key']: b for b in ip_buckets}
+                        if ips_to_geo:
+                            for i in range(0, len(ips_to_geo[:150]), 100):
+                                batch = ips_to_geo[i:i+100]
+                                geo_r = requests.post('http://ip-api.com/batch',
+                                    json=[{'query': ip, 'fields': 'query,country,regionName,lat,lon,status'} for ip in batch],
+                                    timeout=10)
+                                if geo_r.status_code == 200:
+                                    for geo in geo_r.json():
+                                        if geo.get('status') != 'success':
+                                            continue
+                                        ip = geo['query']
+                                        bkt = ip_meta.get(ip, {})
+                                        hit = (bkt.get('latest', {}).get('hits', {}).get('hits') or [{}])[0].get('_source', {})
+                                        points.append({
+                                            'ip':      ip,
+                                            'lat':     geo['lat'],
+                                            'lon':     geo['lon'],
+                                            'country': geo.get('country', '?'),
+                                            'region':  geo.get('regionName', ''),
+                                            'count':   bkt.get('doc_count', 1),
+                                            'level':   hit.get('rule', {}).get('level', 5),
+                                            'rule':    hit.get('rule', {}).get('description', 'External connection'),
+                                            'agent':   hit.get('agent', {}).get('name', ''),
+                                            'time':    hit.get('@timestamp', ''),
+                                            'us':      geo.get('country', '') == 'United States',
+                                        })
+                except Exception:
+                    pass
+            # Supplement with CrowdSec ban data when still few points
             if len(points) < 10:
                 cs_points = _get_crowdsec_geopoints()
                 existing_ips = {p['ip'] for p in points}
                 for p in cs_points:
                     if p['ip'] not in existing_ips:
                         points.append(p)
-                if not countries and points:
-                    from collections import Counter
-                    cc = Counter(p['country'] for p in points)
-                    countries = [{'key': k, 'doc_count': v} for k, v in cc.most_common(15)]
+            if not countries and points:
+                from collections import Counter
+                cc = Counter(p['country'] for p in points)
+                countries = [{'key': k, 'doc_count': v} for k, v in cc.most_common(15)]
             return jsonify({
                 'points': points,
                 'total': data['hits']['total']['value'] or len(points),
@@ -4945,6 +5012,15 @@ def api_send_report_email():
         return jsonify({'ok': False, 'error': _sanitize_err(e)})
 
 
+@app.route('/api/reports/monthly', methods=['POST'])
+@login_required
+def api_trigger_monthly_report():
+    """Manually trigger the monthly report (for testing)."""
+    import threading as _t
+    _t.Thread(target=_send_monthly_report, daemon=True).start()
+    return jsonify({'ok': True, 'msg': 'Monthly report queued'})
+
+
 # ── AI single-alert triage ────────────────────────────────────────────────────
 
 @app.route('/api/ai/triage_alert', methods=['POST'])
@@ -5899,6 +5975,7 @@ _monitor_state = {
     'ntfy_cooldown': 120,
     'sms_cooldown': 300,       # 5 min between SMS batches (don't spam cell)
     'seen_rule_ts': {},        # {rule_id: last_notified_ts} — dedup noise rules
+    'last_monthly_report': '',  # YYYY-MM-DD of last monthly report sent
 }
 
 # ── Alert tuning — based on real observed traffic ─────────────────────────────
@@ -5968,6 +6045,163 @@ def _auto_make_permanent():
     except Exception as e:
         app.logger.debug(f'Auto-permanent failed: {e}')
 
+def _send_monthly_report():
+    """Generate and email the monthly security report. Called on the 1st of each month."""
+    from collections import Counter
+    import smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+
+    if not SMTP_HOST:
+        app.logger.info('Monthly report: SMTP not configured, skipping')
+        return
+
+    try:
+        now = datetime.utcnow()
+        generated = now.strftime('%Y-%m-%d')
+        month_label = now.strftime('%B %Y')
+
+        # CrowdSec bans
+        try:
+            hdrs = {'X-Api-Key': CROWDSEC_API_KEY}
+            r = requests.get(f"{CROWDSEC_URL}/v1/decisions?type=ban&limit=500", headers=hdrs, timeout=8)
+            decisions = r.json() if r.status_code == 200 and r.text.strip() not in ('null','') else []
+            threats_blocked = get_crowdsec_total() or len(decisions or [])
+            sc = Counter(d.get('scenario','unknown') for d in (decisions or []))
+            top_scenarios = [{'name': k, 'count': v} for k, v in sc.most_common(3)]
+        except Exception:
+            threats_blocked = 0
+            top_scenarios = []
+
+        # Wazuh alerts 30d
+        try:
+            q = {
+                'size': 0,
+                'query': {'range': {'@timestamp': {'gte': 'now-30d'}}},
+                'aggs': {
+                    'total': {'value_count': {'field': '_id'}},
+                    'by_level': {'range': {'field': 'rule.level', 'ranges': [
+                        {'key': 'critical', 'from': 12},
+                        {'key': 'high',     'from': 10, 'to': 12},
+                        {'key': 'medium',   'from': 7,  'to': 10},
+                    ]}},
+                    'by_agent': {'terms': {'field': 'agent.name', 'size': 5}},
+                }
+            }
+            wr = requests.post(f"{WAZUH_URL}/wazuh-alerts-4.x-*/_search",
+                               auth=(WAZUH_USER, WAZUH_PASS), json=q, verify=WAZUH_CA, timeout=10)
+            aggs = wr.json().get('aggregations', {}) if wr.status_code == 200 else {}
+            lvl = {b['key']: b['doc_count'] for b in aggs.get('by_level',{}).get('buckets',[])}
+            alerts_30d = {
+                'total':    aggs.get('total',{}).get('value', 0),
+                'critical': lvl.get('critical', 0),
+                'high':     lvl.get('high', 0),
+                'medium':   lvl.get('medium', 0),
+            }
+        except Exception:
+            alerts_30d = {'total': 0, 'critical': 0, 'high': 0, 'medium': 0}
+
+        # Backups
+        ok_c = warn_c = stale_c = 0
+        try:
+            with open(RESTIC_HTPASSWD) as f:
+                for line in f:
+                    h = line.strip().split(':')[0]
+                    if not h:
+                        continue
+                    try:
+                        snaps = _restic_snapshots(h)
+                        if snaps:
+                            latest = sorted(snaps, key=lambda s: s.get('time',''))[-1]
+                            st = _snap_status(latest.get('time',''))
+                            if st == 'ok': ok_c += 1
+                            elif st == 'warning': warn_c += 1
+                            else: stale_c += 1
+                        else:
+                            stale_c += 1
+                    except Exception:
+                        stale_c += 1
+        except Exception:
+            pass
+
+        # Agent counts
+        try:
+            conn = db_conn()
+            total_a = conn.execute("SELECT COUNT(*) FROM agents").fetchone()[0]
+            ls_rows = conn.execute("SELECT last_seen FROM agents").fetchall()
+            conn.close()
+            now_ts = datetime.utcnow()
+            online_a = sum(1 for (ls,) in ls_rows
+                           if ls and (now_ts - datetime.fromisoformat(ls)).total_seconds() < 300)
+        except Exception:
+            total_a = online_a = 0
+
+        a = alerts_30d
+        bk = {'ok': ok_c, 'warning': warn_c, 'stale': stale_c}
+        scenarios_html = ''.join(
+            f'<tr><td style="padding:4px 8px;font-size:12px;color:#8892a4;">{s["name"].split("/")[-1]}</td>'
+            f'<td style="padding:4px 8px;font-size:12px;color:#ef4444;font-weight:600;">×{s["count"]}</td></tr>'
+            for s in top_scenarios
+        ) or '<tr><td colspan="2" style="padding:4px 8px;color:#22c55e;font-size:12px;">No significant threats</td></tr>'
+
+        html = f"""<!DOCTYPE html><html><body style="background:#06070c;color:#e8eaf0;font-family:Inter,sans-serif;padding:32px;">
+<div style="max-width:600px;margin:0 auto;">
+  <div style="background:linear-gradient(135deg,#1D6FFF,#8b5cf6);border-radius:12px;padding:24px 28px;margin-bottom:24px;">
+    <h1 style="margin:0;font-size:22px;color:#fff;">SomoTechs SOC</h1>
+    <p style="margin:6px 0 0;color:rgba(255,255,255,.75);font-size:13px;">Monthly Security Report · {month_label}</p>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px;">
+    <div style="background:#0d0f17;border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:16px 20px;">
+      <div style="font-size:28px;font-weight:700;color:#22c55e;">{threats_blocked:,}</div>
+      <div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:.4px;margin-top:4px;">Threats Blocked</div>
+      <div style="font-size:11px;color:#8892a4;margin-top:3px;">Active bans this month</div>
+    </div>
+    <div style="background:#0d0f17;border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:16px 20px;">
+      <div style="font-size:28px;font-weight:700;color:{"#ef4444" if a.get("critical",0)>0 else "#f59e0b" if a.get("high",0)>0 else "#22c55e"};">{a.get("total",0):,}</div>
+      <div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:.4px;margin-top:4px;">Wazuh Alerts (30d)</div>
+      <div style="font-size:11px;color:#8892a4;margin-top:3px;">{a.get("critical",0)} critical · {a.get("high",0)} high</div>
+    </div>
+    <div style="background:#0d0f17;border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:16px 20px;">
+      <div style="font-size:28px;font-weight:700;color:#22c55e;">{ok_c}</div>
+      <div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:.4px;margin-top:4px;">Backups Healthy</div>
+      <div style="font-size:11px;color:#8892a4;margin-top:3px;">{warn_c} warning · {stale_c} stale</div>
+    </div>
+    <div style="background:#0d0f17;border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:16px 20px;">
+      <div style="font-size:28px;font-weight:700;color:#93C5FD;">{online_a}</div>
+      <div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:.4px;margin-top:4px;">Agents Online</div>
+      <div style="font-size:11px;color:#8892a4;margin-top:3px;">of {total_a} managed</div>
+    </div>
+  </div>
+  <div style="background:#0d0f17;border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:16px 20px;margin-bottom:24px;">
+    <div style="font-size:11px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px;">Top Attack Patterns</div>
+    <table style="width:100%;border-collapse:collapse;">{scenarios_html}</table>
+  </div>
+  <div style="text-align:center;font-size:11px;color:#475569;border-top:1px solid rgba(255,255,255,.07);padding-top:16px;">
+    SomoTechs · (417) 390-5129 · <a href="mailto:helpdesk@somotechs.com" style="color:#60A5FA;">helpdesk@somotechs.com</a><br>
+    This is your automated monthly security report. Dashboard: <a href="https://soc.somotechs.com" style="color:#60A5FA;">soc.somotechs.com</a>
+  </div>
+</div>
+</body></html>"""
+
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = f'SomoTechs Monthly Security Report — {month_label}'
+        msg['From']    = SMTP_FROM
+        msg['To']      = SMTP_TO
+        msg.attach(MIMEText(html, 'html'))
+
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as smtp:
+            smtp.starttls()
+            if SMTP_USER and SMTP_PASS:
+                smtp.login(SMTP_USER, SMTP_PASS)
+            smtp.sendmail(SMTP_FROM, [SMTP_TO], msg.as_string())
+
+        _monitor_state['last_monthly_report'] = generated
+        app.logger.info(f'Monthly security report sent to {SMTP_TO} for {month_label}')
+
+    except Exception as e:
+        app.logger.warning(f'Monthly report failed: {e}')
+
+
 def _alert_monitor_loop():
     """Background thread: Wazuh alerts every 5 min, policy scheduler + offline check every 60s."""
     import time as _time
@@ -5990,6 +6224,11 @@ def _alert_monitor_loop():
             if now_ts - _last_perm_convert >= 300:
                 _auto_make_permanent()
                 _last_perm_convert = _time.time()
+            # Monthly security report — fires on the 1st of each month
+            today_str = datetime.utcnow().strftime('%Y-%m-%d')
+            if (datetime.utcnow().day == 1
+                    and _monitor_state.get('last_monthly_report') != today_str):
+                _send_monthly_report()
         except Exception as e:
             app.logger.warning(f'Monitor loop error: {e}')
         _time.sleep(60)
