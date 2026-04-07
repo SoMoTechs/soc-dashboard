@@ -7,6 +7,8 @@
 :root{--bg:#0a0a0a;--surface:#111;--s2:#161616;--s3:#1c1c1c;--border:#1e1e1e;--b2:#2a2a2a;--text:#e5e7eb;--subtle:#6b7280;--blue:#1D6FFF;--green:#10b981;--amber:#f59e0b;--red:#ef4444;}
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;font-size:14px;}
+body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(circle,rgba(29,111,255,.04) 1px,transparent 1px);background-size:32px 32px;pointer-events:none;z-index:0;}
+body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 60% 50% at 0% 0%,rgba(29,111,255,.06) 0%,transparent 60%),radial-gradient(ellipse 40% 40% at 100% 100%,rgba(59,130,246,.04) 0%,transparent 55%);pointer-events:none;z-index:0;}
 .layout{display:flex;height:100vh;}
 
 /* Sidebar nav */
@@ -57,16 +59,16 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .bubble.in{background:var(--s3);color:var(--text);border-bottom-left-radius:4px;border:1px solid var(--b2);}
 .bubble-time{font-size:10px;color:var(--subtle);margin-top:3px;padding:0 2px;}
 .msg-input-wrap{padding:14px 16px;border-top:1px solid var(--border);display:flex;gap:10px;align-items:flex-end;}
-.msg-input{flex:1;background:var(--s2);border:1px solid var(--b2);border-radius:10px;padding:10px 14px;color:var(--text);font-size:13px;font-family:inherit;resize:none;max-height:120px;min-height:42px;}
+.msg-input{flex:1;background:var(--s2);border:1px solid var(--b2);border-radius:12px;padding:10px 14px;color:var(--text);font-size:13px;font-family:inherit;resize:none;max-height:120px;min-height:42px;}
 .msg-input:focus{outline:none;border-color:var(--blue);}
-.send-btn{background:var(--blue);color:#fff;border:none;border-radius:10px;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer;flex-shrink:0;transition:background .15s;}
+.send-btn{background:var(--blue);color:#fff;border:none;border-radius:12px;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer;flex-shrink:0;transition:background .15s;}
 .send-btn:hover{background:#1559cc;}
 .send-btn:disabled{background:var(--b2);color:var(--subtle);cursor:not-allowed;}
 
 /* New chat modal */
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;display:flex;align-items:center;justify-content:center;display:none;}
 .modal-bg.open{display:flex;}
-.modal{background:var(--surface);border:1px solid var(--b2);border-radius:10px;padding:24px;width:360px;display:flex;flex-direction:column;gap:14px;}
+.modal{background:var(--surface);border:1px solid var(--b2);border-radius:12px;padding:24px;width:360px;display:flex;flex-direction:column;gap:14px;}
 .modal h3{font-size:15px;font-weight:600;}
 label{font-size:11px;color:var(--subtle);display:block;margin-bottom:4px;}
 .modal input,.modal select{width:100%;background:var(--s2);border:1px solid var(--b2);border-radius:6px;padding:8px 10px;color:var(--text);font-size:13px;font-family:inherit;}
@@ -77,9 +79,8 @@ label{font-size:11px;color:var(--subtle);display:block;margin-bottom:4px;}
 .btn-ghost{background:transparent;color:var(--subtle);border:1px solid var(--b2);}.btn-ghost:hover{color:var(--text);}
 
 /* Badge on nav */
-.nav-badge{display:inline-block;background:var(--red);color:#fff;border-radius:10px;font-size:10px;font-weight:700;padding:1px 6px;margin-left:6px;vertical-align:middle;}
+.nav-badge{display:inline-block;background:var(--red);color:#fff;border-radius:12px;font-size:10px;font-weight:700;padding:1px 6px;margin-left:6px;vertical-align:middle;}
 </style>
-  <script src="/static/theme-effects.js" defer></script>
 </head>
 <body>
 <div class="layout">
@@ -96,11 +97,7 @@ label{font-size:11px;color:var(--subtle);display:block;margin-bottom:4px;}
   <a class="nav-link" href="/outreach">Outreach</a>
   <a class="nav-link active" href="/sms">SMS Chat <span id="nav-unread" class="nav-badge" style="display:none"></span></a>
   <a class="nav-link" href="/tools">Tools</a>
-  <a class="nav-link" href="/logout" style="margin-top:auto;color:var(--red);">Sign Out</a>
-
-    <div class="theme-picker" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
-      <div style="font-size:9px;font-weight:700;color:var(--text-subtle);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Theme</div>
-      <div style="display:flex;flex-wrap:wrap;gap:3px;">
+  <a class="nav-link" href="/logout" style="margin-top:auto;color:var(--red);">Sign Out</a><div style="display:flex;flex-wrap:wrap;gap:3px;">
         <button onclick="setTheme('midnight')" data-t="midnight" style="font-size:7px;padding:2px 4px;border-radius:2px;border:1px solid rgba(255,255,255,.15);background:transparent;color:var(--text-muted);cursor:pointer;letter-spacing:.5px;font-family:monospace;text-transform:uppercase">Dark</button>
         <button onclick="setTheme('cyber')" data-t="cyber" style="font-size:7px;padding:2px 4px;border-radius:2px;border:1px solid rgba(255,255,255,.15);background:transparent;color:var(--text-muted);cursor:pointer;letter-spacing:.5px;font-family:monospace;text-transform:uppercase">Cybr</button>
         <button onclick="setTheme('matrix')" data-t="matrix" style="font-size:7px;padding:2px 4px;border-radius:2px;border:1px solid rgba(255,255,255,.15);background:transparent;color:var(--text-muted);cursor:pointer;letter-spacing:.5px;font-family:monospace;text-transform:uppercase">Mtrx</button>
@@ -339,16 +336,6 @@ setInterval(function(){loadConvs();checkUnread();},10000);
 document.getElementById('new-chat-modal').addEventListener('click',function(e){
   if(e.target===this)closeNewChat();
 });
-
-// ── Theme system ──────────────────────────────────────────────────
-function setTheme(t){
-  if(t==='midnight'){document.documentElement.removeAttribute('data-theme');}
-  else{document.documentElement.setAttribute('data-theme',t);}
-  localStorage.setItem('soc-theme',t);
-  document.querySelectorAll('[data-t]').forEach(b=>{
-    b.style.borderColor=b.dataset.t===t?'var(--accent)':'rgba(255,255,255,.15)';
-    b.style.color=b.dataset.t===t?'var(--accent)':'var(--text-muted)';
-  });
 }
 (function(){
   var t=localStorage.getItem('soc-theme')||'midnight';

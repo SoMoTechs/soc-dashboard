@@ -20,6 +20,8 @@
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 html,body{height:100%;}
+body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(circle,rgba(29,111,255,.04) 1px,transparent 1px);background-size:32px 32px;pointer-events:none;z-index:0;}
+body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 60% 50% at 0% 0%,rgba(29,111,255,.06) 0%,transparent 60%),radial-gradient(ellipse 40% 40% at 100% 100%,rgba(59,130,246,.04) 0%,transparent 55%);pointer-events:none;z-index:0;}
 body{background:var(--bg);background-image:radial-gradient(ellipse 80% 60% at 10% 30%,rgba(99,102,241,.07) 0%,transparent 60%);color:var(--text);font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.5;display:flex;}
 .sidebar{width:var(--sidebar-w);background:linear-gradient(180deg,#0a0b14 0%,#080910 100%);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:50;}
 .sidebar-logo{padding:20px 16px 16px;border-bottom:1px solid var(--border);}
@@ -105,7 +107,6 @@ tbody tr:last-child td{border-bottom:none;}
 ::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px;}
 @media(max-width:900px){.sidebar{display:none;}.main{margin-left:0;}}
 </style>
-  <script src="/static/theme-effects.js" defer></script>
 </head>
 <body>
 <aside class="sidebar">
@@ -129,11 +130,7 @@ tbody tr:last-child td{border-bottom:none;}
     <a href="/somoagent" class="nav-link"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>SomoAgent</a>
     <div class="nav-divider"></div>
     <a href="/logout" class="nav-link danger"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Sign Out</a>
-  </nav>
-  
-    <div class="theme-picker" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
-      <div style="font-size:9px;font-weight:700;color:var(--text-subtle);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Theme</div>
-      <div style="display:flex;flex-wrap:wrap;gap:3px;">
+  </nav><div style="display:flex;flex-wrap:wrap;gap:3px;">
         <button onclick="setTheme('midnight')" data-t="midnight" style="font-size:7px;padding:2px 4px;border-radius:2px;border:1px solid rgba(255,255,255,.15);background:transparent;color:var(--text-muted);cursor:pointer;letter-spacing:.5px;font-family:monospace;text-transform:uppercase">Dark</button>
         <button onclick="setTheme('cyber')" data-t="cyber" style="font-size:7px;padding:2px 4px;border-radius:2px;border:1px solid rgba(255,255,255,.15);background:transparent;color:var(--text-muted);cursor:pointer;letter-spacing:.5px;font-family:monospace;text-transform:uppercase">Cybr</button>
         <button onclick="setTheme('matrix')" data-t="matrix" style="font-size:7px;padding:2px 4px;border-radius:2px;border:1px solid rgba(255,255,255,.15);background:transparent;color:var(--text-muted);cursor:pointer;letter-spacing:.5px;font-family:monospace;text-transform:uppercase">Mtrx</button>
@@ -462,16 +459,6 @@ document.addEventListener('keydown',e=>{
 document.getElementById('p-target-type').addEventListener('change',updateTargetValue);
 setInterval(()=>{document.getElementById('ts').textContent=new Date().toUTCString().slice(17,25)+' UTC';},1000);
 loadPolicies();
-
-// ── Theme system ──────────────────────────────────────────────────
-function setTheme(t){
-  if(t==='midnight'){document.documentElement.removeAttribute('data-theme');}
-  else{document.documentElement.setAttribute('data-theme',t);}
-  localStorage.setItem('soc-theme',t);
-  document.querySelectorAll('[data-t]').forEach(b=>{
-    b.style.borderColor=b.dataset.t===t?'var(--accent)':'rgba(255,255,255,.15)';
-    b.style.color=b.dataset.t===t?'var(--accent)':'var(--text-muted)';
-  });
 }
 (function(){
   var t=localStorage.getItem('soc-theme')||'midnight';

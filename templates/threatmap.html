@@ -29,6 +29,8 @@
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 html,body{height:100%;overflow:hidden;background:#050608;}
+body::before{content:'';position:fixed;inset:0;background-image:radial-gradient(circle,rgba(29,111,255,.04) 1px,transparent 1px);background-size:32px 32px;pointer-events:none;z-index:0;}
+body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 60% 50% at 0% 0%,rgba(29,111,255,.06) 0%,transparent 60%),radial-gradient(ellipse 40% 40% at 100% 100%,rgba(59,130,246,.04) 0%,transparent 55%);pointer-events:none;z-index:0;}
 body{font-family:'Inter',system-ui,sans-serif;color:var(--text);}
 
 /* ── HEADER ── */
@@ -174,7 +176,6 @@ body{font-family:'Inter',system-ui,sans-serif;color:var(--text);}
 .scroll-section::-webkit-scrollbar{width:3px;}
 .scroll-section::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);}
 </style>
-  <script src="/static/theme-effects.js" defer></script>
 </head>
 <body>
 
@@ -566,16 +567,6 @@ tickClock();setInterval(tickClock,1000);
 
 loadData();
 setInterval(loadData,120000);
-
-// ── Theme system ──────────────────────────────────────────────────
-function setTheme(t){
-  if(t==='midnight'){document.documentElement.removeAttribute('data-theme');}
-  else{document.documentElement.setAttribute('data-theme',t);}
-  localStorage.setItem('soc-theme',t);
-  document.querySelectorAll('[data-t]').forEach(b=>{
-    b.style.borderColor=b.dataset.t===t?'var(--accent)':'rgba(255,255,255,.15)';
-    b.style.color=b.dataset.t===t?'var(--accent)':'var(--text-muted)';
-  });
 }
 (function(){
   var t=localStorage.getItem('soc-theme')||'midnight';

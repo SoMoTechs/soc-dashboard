@@ -34,11 +34,11 @@ body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse
 .sidebar{width:var(--sidebar-w);background:linear-gradient(180deg,#07090f 0%,#050810 100%);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:50;}
 .sidebar-logo{padding:22px 18px 18px;border-bottom:1px solid var(--border);}
 .logo-mark{display:flex;align-items:center;gap:12px;}
-.logo-icon{width:36px;height:36px;flex-shrink:0;background:linear-gradient(135deg,#1D6FFF 0%,#8b5cf6 100%);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;color:white;box-shadow:0 0 0 1px rgba(29,111,255,.4),0 0 24px rgba(29,111,255,.4);}
+.logo-icon{width:36px;height:36px;flex-shrink:0;background:linear-gradient(135deg,#1D6FFF 0%,#8b5cf6 100%);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;color:white;box-shadow:0 0 0 1px rgba(29,111,255,.4),0 0 24px rgba(29,111,255,.4);}
 .logo-text{font-size:15px;font-weight:700;color:var(--text);letter-spacing:-.3px;}
 .logo-sub{font-size:10px;color:var(--text-subtle);margin-top:1px;letter-spacing:.5px;text-transform:uppercase;}
 .sidebar-nav{flex:1;padding:14px 10px;overflow-y:auto;}
-.nav-link{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;color:var(--text-muted);text-decoration:none;font-size:13px;font-weight:500;transition:all .15s;margin-bottom:2px;border-left:2px solid transparent;}
+.nav-link{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:12px;color:var(--text-muted);text-decoration:none;font-size:13px;font-weight:500;transition:all .15s;margin-bottom:2px;border-left:2px solid transparent;}
 .nav-link:hover{background:rgba(255,255,255,.04);color:var(--text);border-left-color:rgba(255,255,255,.12);}
 .nav-link.active{background:linear-gradient(90deg,rgba(29,111,255,.15) 0%,rgba(29,111,255,.05) 100%);color:#93C5FD;border-left-color:#1D6FFF;font-weight:600;}
 .nav-link.danger:hover{background:rgba(239,68,68,.1);color:var(--red);border-left-color:var(--red);}
@@ -89,7 +89,7 @@ body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse
 .kpi-card-amber{border-top:2px solid var(--amber);}
 .kpi-card-blue{border-top:2px solid var(--blue);}
 .kpi-card-green{border-top:2px solid var(--green);}
-.kpi-icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;}
+.kpi-icon{width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;}
 .kpi-icon.red{background:rgba(239,68,68,.12);}
 .kpi-icon.amber{background:rgba(245,158,11,.12);}
 .kpi-icon.blue{background:rgba(59,130,246,.12);}
@@ -110,7 +110,7 @@ body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse
 .panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.3);display:flex;flex-direction:column;}
 .panel-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
 .panel-title{font-size:11px;font-weight:700;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.8px;display:flex;align-items:center;gap:8px;}
-.panel-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;}
+.panel-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;}
 .panel-badge.red{background:rgba(239,68,68,.15);color:var(--red-2);}
 .panel-badge.blue{background:rgba(59,130,246,.12);color:var(--blue-2);}
 .panel-badge.green{background:rgba(34,197,94,.12);color:var(--green-2);}
@@ -177,7 +177,6 @@ body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse
 .loading-dots::after{content:'...';animation:dots 1s steps(4,end) infinite;}
 @keyframes dots{0%,25%{content:''}26%,50%{content:'.'}51%,75%{content:'..'}76%,100%{content:'...'}}
 </style>
-  <script src="/static/theme-effects.js" defer></script>
 </head>
 <body>
 
@@ -248,11 +247,7 @@ body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       Sign Out
     </a>
-  </nav>
-  
-    <div class="theme-picker" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
-      <div style="font-size:9px;font-weight:700;color:var(--text-subtle);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Theme</div>
-      <div style="display:flex;flex-wrap:wrap;gap:3px;">
+  </nav><div style="display:flex;flex-wrap:wrap;gap:3px;">
         <button onclick="setTheme('midnight')" data-t="midnight" style="font-size:7px;padding:2px 4px;border-radius:2px;border:1px solid rgba(255,255,255,.15);background:transparent;color:var(--text-muted);cursor:pointer;letter-spacing:.5px;font-family:monospace;text-transform:uppercase">Dark</button>
         <button onclick="setTheme('cyber')" data-t="cyber" style="font-size:7px;padding:2px 4px;border-radius:2px;border:1px solid rgba(255,255,255,.15);background:transparent;color:var(--text-muted);cursor:pointer;letter-spacing:.5px;font-family:monospace;text-transform:uppercase">Cybr</button>
         <button onclick="setTheme('matrix')" data-t="matrix" style="font-size:7px;padding:2px 4px;border-radius:2px;border:1px solid rgba(255,255,255,.15);background:transparent;color:var(--text-muted);cursor:pointer;letter-spacing:.5px;font-family:monospace;text-transform:uppercase">Mtrx</button>
@@ -344,7 +339,7 @@ body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse
             Active Ban List
           </div>
           <div class="panel-badge red" id="ban-count-badge">loading</div>
-          <button id="make-perm-btn" onclick="makeAllPermanent()" title="Convert all timed bans to permanent" style="font-size:9px;font-weight:700;padding:3px 10px;border-radius:10px;background:rgba(239,68,68,.12);color:var(--red-2);border:1px solid rgba(239,68,68,.25);cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;">⊘ All Permanent</button>
+          <button id="make-perm-btn" onclick="makeAllPermanent()" title="Convert all timed bans to permanent" style="font-size:9px;font-weight:700;padding:3px 10px;border-radius:12px;background:rgba(239,68,68,.12);color:var(--red-2);border:1px solid rgba(239,68,68,.25);cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;">⊘ All Permanent</button>
         </div>
         <div class="search-bar">
           <input class="search-input" id="ban-ip-input" type="text" placeholder="IP to permanently ban... e.g. 185.220.101.47" onkeydown="if(event.key==='Enter')banIP()"/>
@@ -686,16 +681,6 @@ loadDecisions(false);
 // Refresh every 60 seconds
 setInterval(()=>loadDecisions(true),60000);
 setInterval(loadStats,300000);
-
-// ── Theme system ──────────────────────────────────────────────────
-function setTheme(t){
-  if(t==='midnight'){document.documentElement.removeAttribute('data-theme');}
-  else{document.documentElement.setAttribute('data-theme',t);}
-  localStorage.setItem('soc-theme',t);
-  document.querySelectorAll('[data-t]').forEach(b=>{
-    b.style.borderColor=b.dataset.t===t?'var(--accent)':'rgba(255,255,255,.15)';
-    b.style.color=b.dataset.t===t?'var(--accent)':'var(--text-muted)';
-  });
 }
 (function(){
   var t=localStorage.getItem('soc-theme')||'midnight';
