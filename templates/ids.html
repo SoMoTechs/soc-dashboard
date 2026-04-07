@@ -98,6 +98,7 @@
 
     @media(max-width:900px){.row,.row3{grid-template-columns:1fr}.sidebar{display:none}.main{margin-left:0}}
   </style>
+  <script src="/static/theme-effects.js" defer></script>
 </head>
 <body>
 <nav class="sidebar">
@@ -526,6 +527,28 @@ loadAll();
 loadSuppress();
 setInterval(loadAll,60000);
 (function(){const t=localStorage.getItem('soc-theme')||'dark';document.documentElement.setAttribute('data-theme',t)})();
+
+// ── Theme system ──────────────────────────────────────────────────
+function setTheme(t){
+  if(t==='midnight'){document.documentElement.removeAttribute('data-theme');}
+  else{document.documentElement.setAttribute('data-theme',t);}
+  localStorage.setItem('soc-theme',t);
+  document.querySelectorAll('[data-t]').forEach(b=>{
+    b.style.borderColor=b.dataset.t===t?'var(--accent)':'rgba(255,255,255,.15)';
+    b.style.color=b.dataset.t===t?'var(--accent)':'var(--text-muted)';
+  });
+}
+(function(){
+  var t=localStorage.getItem('soc-theme')||'midnight';
+  if(t&&t!=='midnight')document.documentElement.setAttribute('data-theme',t);
+  document.addEventListener('DOMContentLoaded',function(){
+    document.querySelectorAll('[data-t]').forEach(b=>{
+      b.style.borderColor=b.dataset.t===t?'var(--accent)':'rgba(255,255,255,.15)';
+      b.style.color=b.dataset.t===t?'var(--accent)':'var(--text-muted)';
+    });
+  });
+})();
+
 </script>
 </body>
 </html>

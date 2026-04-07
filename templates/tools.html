@@ -110,6 +110,7 @@
     .px-tag{display:inline-block;font-size:.72rem;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.25);color:#93c5fd;border-radius:4px;padding:2px 8px;margin-right:4px;margin-top:4px}
     @media(max-width:640px){.proxmox-banner,.grid{grid-template-columns:1fr}.picker{max-width:100%}}
   </style>
+  <script src="/static/theme-effects.js" defer></script>
 </head>
 <body>
 
@@ -386,6 +387,28 @@ setInterval(loadMachines, 30000);
   const t=localStorage.getItem('soc-theme')||'dark';
   document.documentElement.setAttribute('data-theme',t);
 })();
+
+// ── Theme system ──────────────────────────────────────────────────
+function setTheme(t){
+  if(t==='midnight'){document.documentElement.removeAttribute('data-theme');}
+  else{document.documentElement.setAttribute('data-theme',t);}
+  localStorage.setItem('soc-theme',t);
+  document.querySelectorAll('[data-t]').forEach(b=>{
+    b.style.borderColor=b.dataset.t===t?'var(--accent)':'rgba(255,255,255,.15)';
+    b.style.color=b.dataset.t===t?'var(--accent)':'var(--text-muted)';
+  });
+}
+(function(){
+  var t=localStorage.getItem('soc-theme')||'midnight';
+  if(t&&t!=='midnight')document.documentElement.setAttribute('data-theme',t);
+  document.addEventListener('DOMContentLoaded',function(){
+    document.querySelectorAll('[data-t]').forEach(b=>{
+      b.style.borderColor=b.dataset.t===t?'var(--accent)':'rgba(255,255,255,.15)';
+      b.style.color=b.dataset.t===t?'var(--accent)':'var(--text-muted)';
+    });
+  });
+})();
+
 </script>
 </body>
 </html>

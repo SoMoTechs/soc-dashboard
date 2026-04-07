@@ -5,7 +5,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SomoTechs SOC — Backups</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/themes.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#06070c;
@@ -187,6 +188,7 @@ tr:last-child td{border-bottom:none;}
 .sidebar-footer{padding:12px 16px 16px;border-top:1px solid var(--border);}
 .footer-ts{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-subtle);margin-top:4px;}
 </style>
+  <script src="/static/theme-effects.js" defer></script>
 </head>
 <body>
 
@@ -252,6 +254,18 @@ tr:last-child td{border-bottom:none;}
       Sign Out
     </a>
   </nav>
+  
+    <div class="theme-picker" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+      <div style="font-size:9px;font-weight:700;color:var(--text-subtle);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Theme</div>
+      <div style="display:flex;flex-wrap:wrap;gap:3px;">
+        <button onclick="setTheme('midnight')" data-t="midnight" style="font-size:7px;padding:2px 4px;border-radius:2px;border:1px solid rgba(255,255,255,.15);background:transparent;color:var(--text-muted);cursor:pointer;letter-spacing:.5px;font-family:monospace;text-transform:uppercase">Dark</button>
+        <button onclick="setTheme('cyber')" data-t="cyber" style="font-size:7px;padding:2px 4px;border-radius:2px;border:1px solid rgba(255,255,255,.15);background:transparent;color:var(--text-muted);cursor:pointer;letter-spacing:.5px;font-family:monospace;text-transform:uppercase">Cybr</button>
+        <button onclick="setTheme('matrix')" data-t="matrix" style="font-size:7px;padding:2px 4px;border-radius:2px;border:1px solid rgba(255,255,255,.15);background:transparent;color:var(--text-muted);cursor:pointer;letter-spacing:.5px;font-family:monospace;text-transform:uppercase">Mtrx</button>
+        <button onclick="setTheme('slate')" data-t="slate" style="font-size:7px;padding:2px 4px;border-radius:2px;border:1px solid rgba(255,255,255,.15);background:transparent;color:var(--text-muted);cursor:pointer;letter-spacing:.5px;font-family:monospace;text-transform:uppercase">Slte</button>
+        <button onclick="setTheme('crimson')" data-t="crimson" style="font-size:7px;padding:2px 4px;border-radius:2px;border:1px solid rgba(255,255,255,.15);background:transparent;color:var(--text-muted);cursor:pointer;letter-spacing:.5px;font-family:monospace;text-transform:uppercase">Crim</button>
+        <button onclick="setTheme('solar')" data-t="solar" style="font-size:7px;padding:2px 4px;border-radius:2px;border:1px solid rgba(255,255,255,.15);background:transparent;color:var(--text-muted);cursor:pointer;letter-spacing:.5px;font-family:monospace;text-transform:uppercase">Solr</button>
+      </div>
+    </div>
   <div class="sidebar-footer">
     <div class="footer-ts" id="ts">--:--:-- UTC</div>
   </div>
@@ -696,6 +710,28 @@ loadClients();
 setInterval(loadClients,60000);
 
 setInterval(()=>{const el=document.getElementById('ts');if(el)el.textContent=new Date().toISOString().slice(11,19)+' UTC';},1000);
+
+// ── Theme system ──────────────────────────────────────────────────
+function setTheme(t){
+  if(t==='midnight'){document.documentElement.removeAttribute('data-theme');}
+  else{document.documentElement.setAttribute('data-theme',t);}
+  localStorage.setItem('soc-theme',t);
+  document.querySelectorAll('[data-t]').forEach(b=>{
+    b.style.borderColor=b.dataset.t===t?'var(--accent)':'rgba(255,255,255,.15)';
+    b.style.color=b.dataset.t===t?'var(--accent)':'var(--text-muted)';
+  });
+}
+(function(){
+  var t=localStorage.getItem('soc-theme')||'midnight';
+  if(t&&t!=='midnight')document.documentElement.setAttribute('data-theme',t);
+  document.addEventListener('DOMContentLoaded',function(){
+    document.querySelectorAll('[data-t]').forEach(b=>{
+      b.style.borderColor=b.dataset.t===t?'var(--accent)':'rgba(255,255,255,.15)';
+      b.style.color=b.dataset.t===t?'var(--accent)':'var(--text-muted)';
+    });
+  });
+})();
+
 </script>
 </body>
 </html>

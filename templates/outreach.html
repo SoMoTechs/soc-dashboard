@@ -63,6 +63,7 @@ input:focus,select:focus{outline:none;border-color:var(--blue);}
 .seq-title{font-size:13px;font-weight:600;}
 .seq-sub{font-size:11px;color:var(--subtle);margin-top:2px;}
 </style>
+  <script src="/static/theme-effects.js" defer></script>
 </head>
 <body>
 <div class="wrap">
@@ -77,6 +78,18 @@ input:focus,select:focus{outline:none;border-color:var(--blue);}
   <a class="nav-link active" href="/outreach">Outreach</a>
   <a class="nav-link" href="/tools">Tools</a>
   <a class="nav-link" href="/logout" style="margin-top:auto;color:var(--red);">Sign Out</a>
+
+    <div class="theme-picker" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+      <div style="font-size:9px;font-weight:700;color:var(--text-subtle);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Theme</div>
+      <div style="display:flex;flex-wrap:wrap;gap:3px;">
+        <button onclick="setTheme('midnight')" data-t="midnight" style="font-size:7px;padding:2px 4px;border-radius:2px;border:1px solid rgba(255,255,255,.15);background:transparent;color:var(--text-muted);cursor:pointer;letter-spacing:.5px;font-family:monospace;text-transform:uppercase">Dark</button>
+        <button onclick="setTheme('cyber')" data-t="cyber" style="font-size:7px;padding:2px 4px;border-radius:2px;border:1px solid rgba(255,255,255,.15);background:transparent;color:var(--text-muted);cursor:pointer;letter-spacing:.5px;font-family:monospace;text-transform:uppercase">Cybr</button>
+        <button onclick="setTheme('matrix')" data-t="matrix" style="font-size:7px;padding:2px 4px;border-radius:2px;border:1px solid rgba(255,255,255,.15);background:transparent;color:var(--text-muted);cursor:pointer;letter-spacing:.5px;font-family:monospace;text-transform:uppercase">Mtrx</button>
+        <button onclick="setTheme('slate')" data-t="slate" style="font-size:7px;padding:2px 4px;border-radius:2px;border:1px solid rgba(255,255,255,.15);background:transparent;color:var(--text-muted);cursor:pointer;letter-spacing:.5px;font-family:monospace;text-transform:uppercase">Slte</button>
+        <button onclick="setTheme('crimson')" data-t="crimson" style="font-size:7px;padding:2px 4px;border-radius:2px;border:1px solid rgba(255,255,255,.15);background:transparent;color:var(--text-muted);cursor:pointer;letter-spacing:.5px;font-family:monospace;text-transform:uppercase">Crim</button>
+        <button onclick="setTheme('solar')" data-t="solar" style="font-size:7px;padding:2px 4px;border-radius:2px;border:1px solid rgba(255,255,255,.15);background:transparent;color:var(--text-muted);cursor:pointer;letter-spacing:.5px;font-family:monospace;text-transform:uppercase">Solr</button>
+      </div>
+    </div>
 </aside>
 <main class="main">
   <div class="page-header">
@@ -402,6 +415,28 @@ function sendNow(){
 }
 
 loadStats();
+
+// ── Theme system ──────────────────────────────────────────────────
+function setTheme(t){
+  if(t==='midnight'){document.documentElement.removeAttribute('data-theme');}
+  else{document.documentElement.setAttribute('data-theme',t);}
+  localStorage.setItem('soc-theme',t);
+  document.querySelectorAll('[data-t]').forEach(b=>{
+    b.style.borderColor=b.dataset.t===t?'var(--accent)':'rgba(255,255,255,.15)';
+    b.style.color=b.dataset.t===t?'var(--accent)':'var(--text-muted)';
+  });
+}
+(function(){
+  var t=localStorage.getItem('soc-theme')||'midnight';
+  if(t&&t!=='midnight')document.documentElement.setAttribute('data-theme',t);
+  document.addEventListener('DOMContentLoaded',function(){
+    document.querySelectorAll('[data-t]').forEach(b=>{
+      b.style.borderColor=b.dataset.t===t?'var(--accent)':'rgba(255,255,255,.15)';
+      b.style.color=b.dataset.t===t?'var(--accent)':'var(--text-muted)';
+    });
+  });
+})();
+
 </script>
 </body>
 </html>
