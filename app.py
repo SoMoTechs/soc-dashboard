@@ -858,7 +858,7 @@ import collections
 _rl_lock   = __import__('threading').Lock()
 _rl_counts = collections.defaultdict(list)  # key -> [timestamps]
 _RL_WINDOW = 60    # seconds
-_RL_LIMIT  = 30    # max requests per window per agent (not per IP — all agents share bridge IP)
+_RL_LIMIT  = 120   # max requests per window per agent (agents poll every 5s = 12/min; leave room for retries)
 
 def _real_client_ip():
     """Extract true client IP, respecting Cloudflare and NPM proxy headers."""
