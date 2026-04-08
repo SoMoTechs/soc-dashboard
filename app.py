@@ -1568,7 +1568,7 @@ def rmm_result():
     cmd_id = d.get('cmd_id')
     output = d.get('output', '')
     if not cmd_id:
-        return jsonify({'error': 'no cmd_id'}), 400
+        return jsonify({'ok': True}), 200  # ignore stale results with no cmd_id
     now = datetime.utcnow().isoformat()
     conn = db_conn()
     conn.execute("UPDATE commands SET status='done', output=?, completed=? WHERE id=?", (output, now, cmd_id))
