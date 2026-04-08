@@ -2,568 +2,734 @@
 <html lang="en">
 <head>
   <link rel="icon" type="image/svg+xml" href="/favicon.ico">
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SomoTechs SOC — Live Threat Map</title>
-<meta property="og:title" content="SomoTechs SOC — Live Global Threat Map">
-<meta property="og:description" content="Real-time global cyberattack intelligence. Watch attacks targeting SomoTechs-protected networks as they happen.">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://unpkg.com/globe.gl@2.30.0/dist/globe.gl.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SomoTechs SOC — Live Threat Map</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
 <style>
 :root{
-  --bg:#080c14;
-  --surface:#0e1420;
-  --surface-2:#141b29;
-  --border:rgba(255,255,255,0.07);
-  --border-2:rgba(255,255,255,0.13);
+  --bg:#07111e;--surface:#0e1420;--surface-2:#141b29;
+  --border:rgba(255,255,255,0.06);--border-2:rgba(255,255,255,0.12);
   --accent:#1D6FFF;
-  --green:#22c55e;
-  --amber:#f59e0b;
-  --red:#ef4444;
-  --text:#e8eaf0;
-  --text-muted:#8892a4;
-  --text-subtle:#64748b;
-  --header-h:52px;
-  --sidebar-w:300px;
+  --green:#22c55e;--amber:#f59e0b;--red:#ef4444;--purple:#8b5cf6;
+  --text:#e8eaf0;--text-muted:#8892a4;--text-subtle:#475569;
+  --nav-w:200px;--sidebar-w:280px;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
-html,body{height:100%;overflow:hidden;background:#050608;}
-body{font-family:'Inter',system-ui,sans-serif;color:var(--text);}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;font-size:13px;}
+
+/* ── SHELL ── */
+.shell{display:flex;height:100vh;overflow:hidden;}
+
+/* ── LEFT NAV ── */
+.nav-sidebar{
+  width:var(--nav-w);flex-shrink:0;
+  background:linear-gradient(180deg,#07090f 0%,#050810 100%);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;height:100vh;overflow:hidden;
+}
+.sb-brand{padding:16px 14px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+.sb-logo{width:30px;height:30px;background:linear-gradient(135deg,#1D6FFF,#8b5cf6);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff;flex-shrink:0;box-shadow:0 0 0 1px rgba(29,111,255,.4),0 0 16px rgba(29,111,255,.3);}
+.sb-name{font-size:13px;font-weight:700;letter-spacing:-.2px;}
+.sb-sub{font-size:9px;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.5px;}
+.sb-nav{flex:1;padding:10px 8px;overflow-y:auto;}
+.sb-section{font-size:9px;font-weight:700;color:var(--text-subtle);text-transform:uppercase;letter-spacing:1px;padding:8px 10px 3px;}
+.sb-link{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:6px;color:var(--text-muted);text-decoration:none;font-size:12px;font-weight:500;transition:all .12s;margin-bottom:1px;border-left:2px solid transparent;}
+.sb-link:hover{background:rgba(255,255,255,.04);color:var(--text);}
+.sb-link.active{background:linear-gradient(90deg,rgba(29,111,255,.15),rgba(29,111,255,.05));color:#93c5fd;border-left-color:#1D6FFF;font-weight:600;}
+.sb-link svg{flex-shrink:0;opacity:.6;}
+.sb-link.active svg,.sb-link:hover svg{opacity:1;}
+.sb-footer{padding:10px 14px;border-top:1px solid var(--border);}
+.sb-live{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--green);font-weight:600;}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);flex-shrink:0;box-shadow:0 0 0 2px rgba(34,197,94,.2),0 0 8px rgba(34,197,94,.6);animation:ldot 2s ease-in-out infinite;}
+@keyframes ldot{0%,100%{box-shadow:0 0 0 2px rgba(34,197,94,.2),0 0 8px rgba(34,197,94,.5);}50%{box-shadow:0 0 0 4px rgba(34,197,94,.06),0 0 16px rgba(34,197,94,.2);}}
+
+/* ── MAIN AREA ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
 
 /* ── HEADER ── */
-#header{
-  position:fixed;top:0;left:0;right:0;z-index:500;height:var(--header-h);
-  background:rgba(10,11,15,0.97);border-bottom:1px solid var(--border);
-  backdrop-filter:blur(20px);display:flex;align-items:center;justify-content:space-between;padding:0 20px;gap:12px;
+.topbar{
+  height:52px;flex-shrink:0;
+  background:rgba(7,11,20,.97);border-bottom:1px solid var(--border);
+  backdrop-filter:blur(20px);
+  display:flex;align-items:center;justify-content:space-between;padding:0 18px;gap:12px;
 }
-.brand{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0;}
-.brand-icon{width:30px;height:30px;background:linear-gradient(135deg,#1D6FFF,#8b5cf6);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:white;}
-.brand-title{font-size:13px;font-weight:700;color:var(--text);}
-.brand-sub{font-size:10px;color:var(--text-subtle);}
-.hstats{display:flex;gap:4px;flex-wrap:wrap;}
-.hstat{padding:4px 10px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;text-align:center;border-top:2px solid transparent;min-width:72px;}
-.hstat.s1{border-top-color:var(--red);}
-.hstat.s2{border-top-color:var(--amber);}
-.hstat.s3{border-top-color:var(--green);}
-.hstat.s4{border-top-color:#8b5cf6;}
-.hstat.s5{border-top-color:var(--accent);}
-.hstat-val{font-size:16px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;font-family:'JetBrains Mono',monospace;}
-.hstat.s1 .hstat-val{color:var(--red);}
-.hstat.s2 .hstat-val{color:var(--amber);}
-.hstat.s3 .hstat-val{color:var(--green);}
-.hstat.s4 .hstat-val{color:#a78bfa;}
-.hstat.s5 .hstat-val{color:var(--accent);}
-.hstat-lbl{font-size:9px;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.4px;}
-.live-pulse{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:600;color:var(--red);padding:4px 10px;border:1px solid rgba(239,68,68,.3);border-radius:5px;background:rgba(239,68,68,.07);}
-.live-dot-h{width:6px;height:6px;border-radius:50%;background:var(--red);animation:blink .8s ease-in-out infinite;}
-@keyframes blink{0%,100%{opacity:1;}50%{opacity:.15;}}
-.public-badge{font-size:10px;color:var(--text-subtle);padding:3px 8px;border:1px solid var(--border);border-radius:4px;white-space:nowrap;}
+.tb-brand{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.tb-icon{width:28px;height:28px;background:linear-gradient(135deg,#1D6FFF,#8b5cf6);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;}
+.tb-title{font-size:13px;font-weight:700;}
+.tb-sub{font-size:9px;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.5px;}
+.tb-stats{display:flex;gap:4px;}
+.tb-stat{padding:4px 10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;text-align:center;min-width:70px;}
+.tb-stat.red{border-top:2px solid var(--red);}
+.tb-stat.amber{border-top:2px solid var(--amber);}
+.tb-stat.green{border-top:2px solid var(--green);}
+.tb-stat.purple{border-top:2px solid var(--purple);}
+.tb-stat.blue{border-top:2px solid var(--accent);}
+.tb-val{font-size:15px;font-weight:700;font-family:'JetBrains Mono',monospace;line-height:1;}
+.tb-stat.red .tb-val{color:var(--red);}
+.tb-stat.amber .tb-val{color:var(--amber);}
+.tb-stat.green .tb-val{color:var(--green);}
+.tb-stat.purple .tb-val{color:var(--purple);}
+.tb-stat.blue .tb-val{color:var(--accent);}
+.tb-lbl{font-size:9px;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.3px;margin-top:1px;}
+.tb-right{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.live-badge{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;color:var(--red);padding:4px 10px;border:1px solid rgba(239,68,68,.3);border-radius:5px;background:rgba(239,68,68,.07);letter-spacing:.5px;}
+.live-blink{width:6px;height:6px;border-radius:50%;background:var(--red);animation:blink .8s ease-in-out infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.1;}}
+.hour-sel{background:var(--surface-2);border:1px solid var(--border);color:var(--text);font-family:'Inter',sans-serif;font-size:11px;padding:5px 8px;border-radius:5px;outline:none;cursor:pointer;}
+.hour-sel:focus{border-color:var(--accent);}
 
-/* ── GLOBE ── */
-#globe-wrap{position:fixed;inset:0;top:var(--header-h);right:var(--sidebar-w);}
-#globeViz{width:100%;height:100%;}
+/* ── MAP + SIDEBAR ── */
+.content{display:flex;flex:1;overflow:hidden;}
+.map-wrap{flex:1;position:relative;overflow:hidden;}
+#map-svg{width:100%;height:100%;}
 
-/* ── SIDEBAR ── */
-#sidebar{
-  position:fixed;top:var(--header-h);right:0;bottom:0;width:var(--sidebar-w);
-  background:rgba(10,11,15,0.97);border-left:1px solid var(--border);
+/* D3 map elements */
+.country{fill:#0e1420;stroke:rgba(255,255,255,0.06);stroke-width:.5px;}
+.graticule{fill:none;stroke:rgba(255,255,255,0.03);stroke-width:.4px;}
+.sphere{fill:#07111e;}
+
+/* Attack dots */
+.attack-dot{cursor:pointer;transition:r .3s;}
+.attack-dot:hover{filter:brightness(1.4);}
+@keyframes pulse-ring{0%{r:0;opacity:.8;}100%{r:22;opacity:0;}}
+.pulse-ring{animation:pulse-ring 2s ease-out infinite;fill:none;stroke-width:1.5px;}
+
+/* Arc travel dot */
+@keyframes travelArc{to{offset-distance:100%;}}
+.travel-dot{
+  width:4px;height:4px;border-radius:50%;
+  position:absolute;
+  offset-rotate:0deg;
+  animation:travelArc 3s linear infinite;
+}
+
+/* Home base */
+.home-dot{fill:#22c55e;cursor:default;}
+@keyframes homeGlow{0%,100%{filter:drop-shadow(0 0 4px rgba(34,197,94,.6));}50%{filter:drop-shadow(0 0 12px rgba(34,197,94,.9));}}
+.home-glow{animation:homeGlow 2s ease-in-out infinite;}
+@keyframes flashNew{0%,100%{opacity:1;}50%{opacity:.2;}}
+.new-flash{animation:flashNew .4s ease 5;}
+
+/* Tooltip */
+.map-tooltip{
+  position:absolute;pointer-events:none;z-index:100;
+  background:rgba(7,11,20,.97);border:1px solid var(--border-2);
+  padding:9px 12px;border-radius:6px;min-width:160px;
+  box-shadow:0 8px 24px rgba(0,0,0,.6);font-size:11px;
+  opacity:0;transition:opacity .15s;
+}
+.map-tooltip.visible{opacity:1;}
+.tt-ip{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:var(--amber);margin-bottom:5px;}
+.tt-row{display:flex;justify-content:space-between;gap:12px;color:var(--text-muted);margin:2px 0;}
+.tt-row b{color:var(--text-subtle);font-size:9px;text-transform:uppercase;letter-spacing:.4px;}
+
+/* ── RIGHT SIDEBAR ── */
+.right-sidebar{
+  width:var(--sidebar-w);flex-shrink:0;
+  background:rgba(7,11,20,.97);border-left:1px solid var(--border);
   display:flex;flex-direction:column;overflow:hidden;
   backdrop-filter:blur(12px);
 }
-.s-filter{padding:10px 12px;display:flex;gap:6px;border-bottom:1px solid var(--border);flex-shrink:0;}
-.s-select{flex:1;background:var(--surface-2);border:1px solid var(--border);color:var(--text);font-family:'Inter',sans-serif;font-size:12px;padding:5px 8px;outline:none;border-radius:5px;transition:border-color .15s;}
-.s-select:focus{border-color:var(--accent);}
-.btn-sm{padding:5px 10px;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-size:14px;cursor:pointer;border-radius:5px;transition:all .15s;white-space:nowrap;}
-.btn-sm:hover{background:rgba(255,255,255,.06);color:var(--text);}
-.btn-us{border-color:rgba(34,197,94,.3);color:var(--green);}
-.btn-us.active{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.5);}
-.s-section{border-bottom:1px solid var(--border);flex-shrink:0;}
-.s-title{padding:7px 12px;font-size:10px;font-weight:600;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.6px;background:rgba(0,0,0,.2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px;}
-.live-dot{width:6px;height:6px;border-radius:50%;background:var(--red);animation:blink .8s ease-in-out infinite;flex-shrink:0;}
+.rs-section{border-bottom:1px solid var(--border);flex-shrink:0;}
+.rs-title{
+  padding:7px 12px;font-size:10px;font-weight:600;
+  color:var(--text-subtle);text-transform:uppercase;letter-spacing:.8px;
+  background:rgba(0,0,0,.2);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:6px;
+}
+.rs-dot{width:5px;height:5px;border-radius:50%;background:var(--red);animation:blink .8s ease-in-out infinite;flex-shrink:0;}
 
-/* STAT MINI GRID */
+/* Severity bars */
+.sev-row{display:flex;align-items:center;gap:7px;padding:5px 12px;}
+.sev-lbl{font-size:10px;color:var(--text-muted);width:52px;flex-shrink:0;}
+.sev-bar-bg{flex:1;height:4px;background:rgba(255,255,255,.05);border-radius:2px;overflow:hidden;}
+.sev-bar-fill{height:100%;border-radius:2px;transition:width .6s ease;}
+.sev-cnt{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-subtle);min-width:28px;text-align:right;}
+
+/* Mini grid */
 .mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);}
-.mini-cell{background:var(--surface);padding:8px 12px;}
-.mini-label{font-size:9px;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.4px;}
-.mini-val{font-size:15px;font-weight:700;font-family:'JetBrains Mono',monospace;margin-top:2px;}
+.mini-cell{background:var(--surface);padding:7px 12px;}
+.mini-lbl{font-size:9px;color:var(--text-subtle);text-transform:uppercase;letter-spacing:.4px;}
+.mini-val{font-size:14px;font-weight:700;font-family:'JetBrains Mono',monospace;margin-top:2px;}
 .mini-val.red{color:var(--red);}
 .mini-val.amber{color:var(--amber);}
+.mini-val.purple{color:var(--purple);}
 .mini-val.green{color:var(--green);}
-.mini-val.purple{color:#a78bfa;}
 
-/* SEVERITY BAR */
-.sev-row{display:flex;align-items:center;gap:6px;padding:5px 12px;}
-.sev-label{font-size:10px;color:var(--text-muted);width:58px;flex-shrink:0;}
-.sev-bar-wrap{flex:1;height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden;}
-.sev-bar{height:100%;border-radius:3px;transition:width .6s;}
-.sev-count{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-subtle);min-width:32px;text-align:right;}
-
-/* COUNTRY LIST */
+/* Countries */
 .c-item{display:flex;align-items:center;gap:5px;padding:5px 12px;border-bottom:1px solid rgba(255,255,255,.04);cursor:pointer;transition:background .12s;}
 .c-item:hover{background:rgba(255,255,255,.04);}
-.c-item.us{background:rgba(34,197,94,.03);}
-.c-item.us:hover{background:rgba(34,197,94,.07);}
-.c-flag{font-size:13px;width:18px;text-align:center;flex-shrink:0;}
+.c-flag{font-size:12px;width:16px;text-align:center;flex-shrink:0;}
 .c-name{font-size:11px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-muted);}
-.c-item.us .c-name{color:var(--green);}
-.c-bar-wrap{width:44px;height:3px;background:rgba(255,255,255,.06);border-radius:2px;}
-.c-bar{height:100%;background:var(--red);border-radius:2px;transition:width .5s;}
-.c-item.us .c-bar{background:var(--green);}
-.c-num{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--amber);min-width:28px;text-align:right;}
+.c-bar-bg{width:40px;height:3px;background:rgba(255,255,255,.06);border-radius:2px;}
+.c-bar-fill{height:100%;background:var(--red);border-radius:2px;transition:width .5s;}
+.c-num{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--amber);min-width:26px;text-align:right;}
+.scroll-box{overflow-y:auto;max-height:130px;}
+.scroll-box::-webkit-scrollbar{width:3px;}
+.scroll-box::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);}
 
-/* TOP RULES */
-.rule-item{padding:6px 12px;border-bottom:1px solid rgba(255,255,255,.04);}
-.rule-name{font-size:10px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.rule-bar-row{display:flex;align-items:center;gap:6px;margin-top:3px;}
-.rule-bar-wrap{flex:1;height:3px;background:rgba(255,255,255,.06);border-radius:2px;}
-.rule-bar{height:100%;background:var(--accent);border-radius:2px;transition:width .5s;}
-.rule-count{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-subtle);min-width:28px;text-align:right;}
-
-/* FEED */
-#feed-list{overflow-y:auto;flex:1;}
-#feed-list::-webkit-scrollbar{width:3px;}
-#feed-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);}
+/* Feed */
+.feed-wrap{flex:1;overflow-y:auto;min-height:0;}
+.feed-wrap::-webkit-scrollbar{width:3px;}
+.feed-wrap::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);}
 .f-item{padding:7px 12px;border-bottom:1px solid rgba(255,255,255,.04);cursor:pointer;transition:background .12s;}
 .f-item:hover{background:rgba(255,255,255,.04);}
-.f-item.us{border-left:2px solid var(--green);background:rgba(34,197,94,.03);}
-.f-item.us:hover{background:rgba(34,197,94,.07);}
-.f-item.new{animation:fnew .5s ease 4;}
-@keyframes fnew{0%,100%{background:rgba(34,197,94,.03);}50%{background:rgba(34,197,94,.14);}}
-.f-row1{display:flex;justify-content:space-between;align-items:center;}
+.f-item.us-src{border-left:2px solid var(--green);background:rgba(34,197,94,.03);}
+.f-item.us-src:hover{background:rgba(34,197,94,.07);}
+.f-row1{display:flex;justify-content:space-between;align-items:center;gap:4px;}
 .f-ip{color:var(--amber);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:500;}
-.f-time{font-size:9px;color:var(--text-subtle);font-family:'JetBrains Mono',monospace;}
+.f-time{font-size:9px;color:var(--text-subtle);font-family:'JetBrains Mono',monospace;flex-shrink:0;}
 .f-row2{font-size:10px;color:var(--text-subtle);margin-top:1px;}
 .f-rule{font-size:10px;color:var(--text-muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.ldot{width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:3px;vertical-align:middle;flex-shrink:0;}
-.us-badge{font-size:9px;font-weight:600;border:1px solid rgba(34,197,94,.3);color:var(--green);padding:0 4px;border-radius:3px;margin-left:4px;}
+.f-dot{width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:3px;vertical-align:middle;flex-shrink:0;}
+@keyframes fnew{0%,100%{background:rgba(34,197,94,.03);}50%{background:rgba(34,197,94,.15);}}
+.f-new{animation:fnew .5s ease 5;}
 
-/* TOAST */
-.toast{
-  position:fixed;top:62px;right:calc(var(--sidebar-w) + 12px);z-index:1000;
-  background:rgba(10,11,15,.98);border:1px solid var(--border);border-left:3px solid var(--red);
-  padding:10px 14px;min-width:240px;max-width:300px;border-radius:7px;
-  box-shadow:0 8px 32px rgba(0,0,0,.5);animation:tin .25s ease;
+.rs-foot{padding:8px 12px;border-top:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:space-between;}
+.rs-foot-brand{font-size:10px;color:var(--text-subtle);}
+.rs-foot-time{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-subtle);}
+
+/* Rule items */
+.rule-item{padding:5px 12px;border-bottom:1px solid rgba(255,255,255,.04);}
+.rule-name{font-size:10px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.rule-bar-row{display:flex;align-items:center;gap:6px;margin-top:2px;}
+.rule-bar-bg{flex:1;height:3px;background:rgba(255,255,255,.06);border-radius:2px;}
+.rule-bar-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .5s;}
+.rule-cnt{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-subtle);min-width:26px;text-align:right;}
+
+/* US toggle */
+.btn-us{padding:4px 9px;border:1px solid rgba(34,197,94,.3);background:transparent;color:var(--green);font-size:12px;cursor:pointer;border-radius:5px;transition:all .15s;white-space:nowrap;}
+.btn-us:hover,.btn-us.active{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.5);}
+
+@media(max-width:1100px){
+  .tb-stats{display:none;}
+  .nav-sidebar{display:none;}
+  :root{--sidebar-w:240px;}
 }
-@keyframes tin{from{transform:translateX(20px);opacity:0;}to{transform:translateX(0);opacity:1;}}
-.toast-hd{font-size:10px;font-weight:600;color:var(--red);display:flex;justify-content:space-between;text-transform:uppercase;letter-spacing:.4px;}
-.toast-x{cursor:pointer;color:var(--text-subtle);font-size:14px;}
-.toast-ip{color:var(--amber);font-family:'JetBrains Mono',monospace;font-size:12px;margin-top:4px;}
-.toast-sub{font-size:10px;color:var(--text-subtle);margin-top:2px;}
-
-/* POPUP */
-.globe-popup{background:rgba(10,11,15,.98);border:1px solid var(--border-2);padding:10px 14px;min-width:180px;border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.6);}
-.gp-ip{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:500;color:var(--amber);margin-bottom:6px;}
-.gp-row{font-size:11px;margin:2px 0;color:var(--text-muted);}
-.gp-row b{color:var(--text-subtle);font-size:9px;text-transform:uppercase;letter-spacing:.5px;margin-right:6px;}
-.gp-us{color:var(--green);font-size:10px;font-weight:600;margin-top:6px;padding:3px 6px;border:1px solid rgba(34,197,94,.3);border-radius:3px;display:inline-block;}
-
-/* FOOTER BRAND */
-.sidebar-foot{padding:10px 12px;border-top:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:space-between;}
-.foot-brand{font-size:10px;color:var(--text-subtle);}
-.foot-brand a{color:var(--accent);text-decoration:none;}
-.foot-brand a:hover{text-decoration:underline;}
-#foot-time{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-subtle);}
-
-/* CYCLE BAR */
-#cycle-wrap{height:2px;background:rgba(255,255,255,.05);flex-shrink:0;}
-#cycle-fill{height:100%;background:var(--green);width:0%;}
-
-/* scrollable sections */
-.scroll-section{overflow-y:auto;max-height:160px;}
-.scroll-section::-webkit-scrollbar{width:3px;}
-.scroll-section::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);}
 </style>
 </head>
 <body>
+<div class="shell">
 
-<!-- HEADER -->
-<div id="header">
-  <a class="brand" href="/threatmap">
-    <div class="brand-icon">S</div>
-    <div>
-      <div class="brand-title">SomoTechs SOC</div>
-      <div class="brand-sub">Live Global Attack Intelligence</div>
+<!-- LEFT NAV SIDEBAR -->
+<aside class="nav-sidebar">
+  <div class="sb-brand">
+    <div class="sb-logo">S</div>
+    <div><div class="sb-name">SomoTechs</div><div class="sb-sub">SOC Platform</div></div>
+  </div>
+  <nav class="sb-nav">
+    <span class="sb-section">Security</span>
+    <a href="/" class="sb-link"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>Dashboard</a>
+    <a href="/alerts" class="sb-link"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Alerts</a>
+    <a href="/threatmap" class="sb-link active"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>Threat Map</a>
+    <a href="/ids" class="sb-link"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>IDS / Network</a>
+    <a href="/blocked" class="sb-link"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>Blocked IPs</a>
+    <span class="sb-section">Management</span>
+    <a href="/agents" class="sb-link"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>RMM Agents</a>
+    <a href="/clients" class="sb-link"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>Clients</a>
+    <a href="/backups" class="sb-link"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Backups</a>
+    <a href="/disk" class="sb-link"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>Disk Usage</a>
+    <span class="sb-section">Business</span>
+    <a href="/billing" class="sb-link"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>Billing</a>
+    <a href="/sms" class="sb-link"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>SMS Chat</a>
+  </nav>
+  <div class="sb-footer">
+    <div class="sb-live"><div class="live-dot"></div>Live Feed</div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- HEADER -->
+  <div class="topbar">
+    <div class="tb-brand">
+      <div class="tb-icon">S</div>
+      <div><div class="tb-title">SomoShield Threat Intelligence</div><div class="tb-sub">Global Attack Map</div></div>
     </div>
-  </a>
-  <div class="hstats">
-    <div class="hstat s1"><div class="hstat-val" id="st-total">—</div><div class="hstat-lbl">Total Attacks</div></div>
-    <div class="hstat s2"><div class="hstat-val" id="st-ips">—</div><div class="hstat-lbl">Unique IPs</div></div>
-    <div class="hstat s3"><div class="hstat-val" id="st-us">—</div><div class="hstat-lbl">US Sources</div></div>
-    <div class="hstat s4"><div class="hstat-val" id="st-crit">—</div><div class="hstat-lbl">Critical</div></div>
-    <div class="hstat s5"><div class="hstat-val" id="st-countries">—</div><div class="hstat-lbl">Countries</div></div>
-  </div>
-  <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-    <div class="live-pulse"><div class="live-dot-h"></div>LIVE</div>
-    <span class="public-badge">🔓 Public Feed</span>
-  </div>
-</div>
-
-<!-- GLOBE -->
-<div id="globe-wrap">
-  <div id="globeViz"></div>
-</div>
-
-<!-- SIDEBAR -->
-<div id="sidebar">
-  <div class="s-filter">
-    <select class="s-select" id="f-hours" onchange="loadData()">
-      <option value="6">Last 6 hours</option>
-      <option value="24">Last 24 hours</option>
-      <option value="72">Last 3 days</option>
-      <option value="168">Last 7 days</option>
-      <option value="336" selected>Last 14 days</option>
-      <option value="720">Last 30 days</option>
-    </select>
-    <button class="btn-sm btn-us" id="btn-us" onclick="toggleUS()" title="Focus US attacks">🇺🇸</button>
-  </div>
-  <div id="cycle-wrap"><div id="cycle-fill"></div></div>
-
-  <!-- SEVERITY BREAKDOWN -->
-  <div class="s-section">
-    <div class="s-title">Severity Breakdown</div>
-    <div style="padding:6px 0;" id="sev-bars">
-      <div style="padding:10px 12px;font-size:11px;color:var(--text-subtle)">Loading...</div>
+    <div class="tb-stats">
+      <div class="tb-stat red"><div class="tb-val" id="st-total">—</div><div class="tb-lbl">Attacks</div></div>
+      <div class="tb-stat amber"><div class="tb-val" id="st-ips">—</div><div class="tb-lbl">Unique IPs</div></div>
+      <div class="tb-stat purple"><div class="tb-val" id="st-crit">—</div><div class="tb-lbl">Critical</div></div>
+      <div class="tb-stat green"><div class="tb-val" id="st-us">—</div><div class="tb-lbl">US Sources</div></div>
+      <div class="tb-stat blue"><div class="tb-val" id="st-countries">—</div><div class="tb-lbl">Countries</div></div>
     </div>
-  </div>
-
-  <!-- MINI STATS -->
-  <div class="s-section">
-    <div class="s-title">Attack Stats</div>
-    <div class="mini-grid">
-      <div class="mini-cell"><div class="mini-label">Critical (≥12)</div><div class="mini-val red" id="ms-crit">—</div></div>
-      <div class="mini-cell"><div class="mini-label">High (7–11)</div><div class="mini-val amber" id="ms-high">—</div></div>
-      <div class="mini-cell"><div class="mini-label">Medium (4–6)</div><div class="mini-val purple" id="ms-med">—</div></div>
-      <div class="mini-cell"><div class="mini-label">Low (&lt;4)</div><div class="mini-val green" id="ms-low">—</div></div>
+    <div class="tb-right">
+      <div class="live-badge"><div class="live-blink"></div>LIVE</div>
+      <button class="btn-us" id="btn-us" onclick="toggleUS()" title="Highlight US sources">🇺🇸 US</button>
+      <select class="hour-sel" id="f-hours" onchange="loadData()">
+        <option value="6">Last 6 h</option>
+        <option value="24">Last 24 h</option>
+        <option value="72">Last 3 d</option>
+        <option value="168">Last 7 d</option>
+        <option value="336" selected>Last 14 d</option>
+        <option value="720">Last 30 d</option>
+      </select>
     </div>
   </div>
 
-  <!-- TOP COUNTRIES -->
-  <div class="s-section">
-    <div class="s-title">Top Attack Origins</div>
-    <div class="scroll-section" id="country-list"><div style="padding:12px;font-size:11px;color:var(--text-subtle)">Loading...</div></div>
-  </div>
+  <!-- MAP + RIGHT SIDEBAR -->
+  <div class="content">
 
-  <!-- TOP RULES -->
-  <div class="s-section">
-    <div class="s-title">Top Attack Types</div>
-    <div id="rules-list"><div style="padding:12px;font-size:11px;color:var(--text-subtle)">Loading...</div></div>
-  </div>
+    <!-- WORLD MAP -->
+    <div class="map-wrap" id="map-wrap">
+      <svg id="map-svg"></svg>
+      <div class="map-tooltip" id="tooltip">
+        <div class="tt-ip" id="tt-ip"></div>
+        <div class="tt-row"><b>Country</b><span id="tt-country"></span></div>
+        <div class="tt-row"><b>Hits</b><span id="tt-hits"></span></div>
+        <div class="tt-row"><b>Level</b><span id="tt-level"></span></div>
+        <div class="tt-row"><b>Rule</b><span id="tt-rule"></span></div>
+      </div>
+    </div>
 
-  <!-- LIVE FEED -->
-  <div class="s-title" style="border-bottom:1px solid var(--border);">
-    <span class="live-dot"></span>Live Attack Feed
-  </div>
-  <div id="feed-list"></div>
+    <!-- RIGHT SIDEBAR -->
+    <div class="right-sidebar">
 
-  <div class="sidebar-foot">
-    <div class="foot-brand">Protected by <a href="https://somotechs.com" target="_blank">SomoTechs</a></div>
-    <div id="foot-time">--:--:-- UTC</div>
-  </div>
-</div>
+      <!-- MINI STATS -->
+      <div class="rs-section">
+        <div class="mini-grid">
+          <div class="mini-cell"><div class="mini-lbl">Critical ≥12</div><div class="mini-val red" id="ms-crit">—</div></div>
+          <div class="mini-cell"><div class="mini-lbl">High 7–11</div><div class="mini-val amber" id="ms-high">—</div></div>
+          <div class="mini-cell"><div class="mini-lbl">Medium 4–6</div><div class="mini-val purple" id="ms-med">—</div></div>
+          <div class="mini-cell"><div class="mini-lbl">Low &lt;4</div><div class="mini-val green" id="ms-low">—</div></div>
+        </div>
+      </div>
+
+      <!-- SEVERITY BARS -->
+      <div class="rs-section">
+        <div class="rs-title">Severity Breakdown</div>
+        <div style="padding:5px 0;" id="sev-bars">
+          <div style="padding:8px 12px;font-size:11px;color:var(--text-subtle)">Loading…</div>
+        </div>
+      </div>
+
+      <!-- TOP COUNTRIES -->
+      <div class="rs-section">
+        <div class="rs-title">Top Attack Origins</div>
+        <div class="scroll-box" id="country-list">
+          <div style="padding:10px 12px;font-size:11px;color:var(--text-subtle)">Loading…</div>
+        </div>
+      </div>
+
+      <!-- TOP RULES -->
+      <div class="rs-section">
+        <div class="rs-title">Top Attack Types</div>
+        <div id="rules-list">
+          <div style="padding:10px 12px;font-size:11px;color:var(--text-subtle)">Loading…</div>
+        </div>
+      </div>
+
+      <!-- LIVE FEED -->
+      <div class="rs-title" style="border-bottom:1px solid var(--border);flex-shrink:0;">
+        <span class="rs-dot"></span>Live Attack Feed
+      </div>
+      <div class="feed-wrap" id="feed-list"></div>
+
+      <div class="rs-foot">
+        <div class="rs-foot-brand">Protected by SomoTechs</div>
+        <div class="rs-foot-time" id="foot-time">--:--:-- UTC</div>
+      </div>
+    </div><!-- end right-sidebar -->
+
+  </div><!-- end content -->
+</div><!-- end main -->
+</div><!-- end shell -->
 
 <script>
-// ─── GLOBE INIT ─────────────────────────────────────────────────────────────
-const globeEl=document.getElementById('globeViz');
-const wrapEl=document.getElementById('globe-wrap');
+// ── CONSTANTS ──────────────────────────────────────────────────────────────
+const HOME = {lat: 38.5, lon: -92.5}; // Missouri, USA
+const SEV = {
+  color: l => l>=12?'#ff2244':l>=7?'#ff8800':l>=4?'#8b5cf6':'#3b82f6',
+  rgb:   l => l>=12?'255,34,68':l>=7?'255,136,0':l>=4?'139,92,246':'59,130,246',
+  label: l => l>=12?'Critical':l>=7?'High':l>=4?'Medium':'Low',
+};
 
-const globe=Globe({animateIn:true})(globeEl)
-  .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-night.jpg')
-  .backgroundImageUrl('https://unpkg.com/three-globe/example/img/night-sky.png')
-  .showAtmosphere(true)
-  .atmosphereColor('rgba(0,100,255,0.18)')
-  .atmosphereAltitude(0.22)
-  .arcsData([])
-  .arcStartLat(d=>d.srcLat)
-  .arcStartLng(d=>d.srcLon)
-  .arcEndLat(d=>d.dstLat)
-  .arcEndLng(d=>d.dstLon)
-  .arcColor(d=>[d.color,'rgba(255,255,255,0.05)'])
-  .arcAltitude(d=>d.alt)
-  .arcStroke(d=>d.stroke)
-  .arcDashLength(0.45)
-  .arcDashGap(0.2)
-  .arcDashAnimateTime(d=>d.speed)
-  .arcLabel(d=>`<div class="globe-popup"><div class="gp-ip">${d.ip}</div><div class="gp-row"><b>Country</b>${d.country}</div><div class="gp-row"><b>Level</b>${d.level}</div></div>`)
-  .pointsData([])
-  .pointLat(d=>d.lat)
-  .pointLng(d=>d.lon)
-  .pointColor(d=>d.color)
-  .pointAltitude(0.005)
-  .pointRadius(d=>d.radius)
-  .pointLabel(d=>`<div class="globe-popup"><div class="gp-ip">${d.ip}</div><div class="gp-row"><b>Country</b>${d.country}</div><div class="gp-row"><b>Hits</b>${d.count.toLocaleString()}</div><div class="gp-row"><b>Severity</b> Level ${d.level}</div>${d.us?'<div class="gp-us">🇺🇸 US Source</div>':''}</div>`)
-  .onPointClick(d=>{if(d.us)flyToUS(d);})
-  .ringsData([])
-  .ringLat(d=>d.lat)
-  .ringLng(d=>d.lon)
-  .ringColor(d=>t=>`rgba(${d.rgb},${Math.max(0,1-t)})`)
-  .ringMaxRadius(d=>d.maxR)
-  .ringPropagationSpeed(d=>d.speed)
-  .ringRepeatPeriod(d=>d.period);
+let projection, pathGen, svgEl, mapG, arcG, dotG, ringG;
+let allPoints = [], prevIPs = new Set(), usOnly = false;
+let worldData = null;
+let mapW = 0, mapH = 0;
 
-function resizeGlobe(){globe.width(wrapEl.offsetWidth).height(wrapEl.offsetHeight);}
-resizeGlobe();
-window.addEventListener('resize',resizeGlobe);
-globe.pointOfView({lat:39.5,lng:-98.35,altitude:1.8},0);
-globe.controls().autoRotate=false;
-globe.controls().autoRotateSpeed=0;
-globe.controls().enableZoom=true;
-globeEl.addEventListener('mousedown',()=>{globe.controls().autoRotate=false;});
+// ── INIT MAP ───────────────────────────────────────────────────────────────
+function initMap() {
+  const wrap = document.getElementById('map-wrap');
+  mapW = wrap.clientWidth;
+  mapH = wrap.clientHeight;
 
-// ─── HELPERS ─────────────────────────────────────────────────────────────────
-function levelColor(l){
-  if(l>=15)return'#ff0022';if(l>=12)return'#ff2244';if(l>=10)return'#ff6600';
-  if(l>=7)return'#ffaa00';if(l>=4)return'#8b5cf6';return'#3b82f6';
-}
-function levelRgb(l){
-  if(l>=15)return'255,0,34';if(l>=12)return'255,34,68';if(l>=10)return'255,102,0';
-  if(l>=7)return'255,170,0';if(l>=4)return'139,92,246';return'59,130,246';
-}
-function levelStroke(l){if(l>=12)return 0.7;if(l>=7)return 0.5;return 0.35;}
-function levelAlt(l){if(l>=12)return 0.38;if(l>=7)return 0.28;return 0.2;}
-function levelSpeed(l){if(l>=12)return 1200;if(l>=7)return 1600;return 2200;}
-function levelLabel(l){if(l>=12)return'Critical';if(l>=7)return'High';if(l>=4)return'Medium';return'Low';}
-function levelBarColor(l){if(l>=12)return'var(--red)';if(l>=7)return'var(--amber)';if(l>=4)return'#8b5cf6';return'var(--accent)';}
+  svgEl = d3.select('#map-svg')
+    .attr('width', mapW)
+    .attr('height', mapH);
 
-const US_LAT=39.5,US_LON=-98.35;
+  projection = d3.geoNaturalEarth1()
+    .scale(Math.min(mapW / 5.8, mapH / 3.0))
+    .translate([mapW / 2, mapH / 2]);
 
-// ─── DATA ─────────────────────────────────────────────────────────────────────
-let allPoints=[];
-let usOnly=false;
-let prevIPSet=new Set();
-let firstLoad=true;
-let cycleTimer=null;
-let cycleProgressTimer=null;
-let cycleIdx=0;
-let cycleList=[];
-const CYCLE_MS=9000;
+  pathGen = d3.geoPath().projection(projection);
 
-function buildGlobeData(points){
-  const pts=usOnly?points.filter(p=>p.us):points;
-  const pointsData=pts.filter(p=>p.lat!=null&&p.lon!=null).map(p=>({
-    lat:p.lat,lon:p.lon,ip:p.ip,country:p.country,count:p.count,level:p.level,us:p.us,
-    color:levelColor(p.level),radius:Math.min(0.15+Math.log10(p.count+1)*0.18,0.8)
-  }));
-  const topAttackers=[...pts].filter(p=>p.lat!=null&&p.lon!=null&&!p.us).sort((a,b)=>b.level-a.level||b.count-a.count).slice(0,40);
-  const arcsData=topAttackers.map(p=>({
-    srcLat:p.lat,srcLon:p.lon,
-    dstLat:US_LAT+(Math.random()-.5)*8,dstLon:US_LON+(Math.random()-.5)*20,
-    ip:p.ip,country:p.country,level:p.level,color:levelColor(p.level),rgb:levelRgb(p.level),
-    stroke:levelStroke(p.level),alt:levelAlt(p.level),speed:levelSpeed(p.level)
-  }));
-  const ringsData=pts.filter(p=>p.lat!=null&&p.level>=7).map(p=>({
-    lat:p.lat,lon:p.lon,rgb:levelRgb(p.level),maxR:3+p.level*0.3,speed:1.2+(p.level-7)*0.15,period:1200-p.level*30
-  }));
-  ringsData.push({lat:US_LAT,lon:US_LON,rgb:'0,255,136',maxR:5,speed:1.5,period:800});
-  return{pointsData,arcsData,ringsData};
+  // Sphere (ocean background)
+  svgEl.append('path')
+    .datum({type:'Sphere'})
+    .attr('class','sphere')
+    .attr('d', pathGen);
+
+  // Graticule grid
+  svgEl.append('path')
+    .datum(d3.geoGraticule()())
+    .attr('class','graticule')
+    .attr('d', pathGen);
+
+  // Countries layer
+  mapG = svgEl.append('g').attr('class','countries-layer');
+  arcG = svgEl.append('g').attr('class','arcs-layer');
+  ringG = svgEl.append('g').attr('class','rings-layer');
+  dotG  = svgEl.append('g').attr('class','dots-layer');
+
+  // Home base
+  const [hx, hy] = projection([HOME.lon, HOME.lat]);
+  const homeG = svgEl.append('g').attr('class','home-glow');
+  homeG.append('circle').attr('cx',hx).attr('cy',hy).attr('r',10)
+    .attr('fill','rgba(34,197,94,0.12)').attr('stroke','rgba(34,197,94,0.4)').attr('stroke-width',1);
+  homeG.append('circle').attr('cx',hx).attr('cy',hy).attr('r',5)
+    .attr('fill','rgba(34,197,94,0.2)').attr('stroke','rgba(34,197,94,0.6)').attr('stroke-width',1.5);
+  homeG.append('circle').attr('class','home-dot').attr('cx',hx).attr('cy',hy).attr('r',3.5);
+  homeG.append('text').attr('x',hx+8).attr('y',hy+4)
+    .attr('fill','rgba(34,197,94,0.7)').attr('font-size','9px')
+    .attr('font-family','JetBrains Mono,monospace').attr('font-weight','600')
+    .attr('letter-spacing','.5px').text('HOME');
+
+  // Load world topology
+  d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
+    .then(world => {
+      worldData = world;
+      mapG.selectAll('.country')
+        .data(topojson.feature(world, world.objects.countries).features)
+        .enter().append('path')
+        .attr('class','country')
+        .attr('d', pathGen);
+      loadData();
+    })
+    .catch(() => { loadData(); }); // still load data even if topo fails
 }
 
-function applyGlobeData(points){
-  const{pointsData,arcsData,ringsData}=buildGlobeData(points);
-  globe.arcsData(arcsData).pointsData(pointsData).ringsData(ringsData);
-}
+// ── DRAW DATA ──────────────────────────────────────────────────────────────
+function drawMap(points, isRefresh) {
+  const pts = usOnly ? points.filter(p=>p.us) : points;
+  const newIPs = isRefresh ? new Set(pts.filter(p=>!prevIPs.has(p.ip)).map(p=>p.ip)) : new Set();
 
-// ─── SEVERITY BREAKDOWN ───────────────────────────────────────────────────────
-function renderSeverity(points){
-  const crit=points.filter(p=>p.level>=12).length;
-  const high=points.filter(p=>p.level>=7&&p.level<12).length;
-  const med=points.filter(p=>p.level>=4&&p.level<7).length;
-  const low=points.filter(p=>p.level<4).length;
-  const total=points.length||1;
+  // ── Arcs ──
+  const topAttackers = [...pts]
+    .filter(p => p.lat!=null && p.lon!=null && p.lat!==0)
+    .sort((a,b) => b.level - a.level || b.count - a.count)
+    .slice(0, 35);
 
-  document.getElementById('ms-crit').textContent=crit.toLocaleString();
-  document.getElementById('ms-high').textContent=high.toLocaleString();
-  document.getElementById('ms-med').textContent=med.toLocaleString();
-  document.getElementById('ms-low').textContent=low.toLocaleString();
-  document.getElementById('st-crit').textContent=crit.toLocaleString();
+  // Remove old arcs
+  arcG.selectAll('*').remove();
 
-  const bars=[
-    {label:'Critical',count:crit,color:'var(--red)'},
-    {label:'High',count:high,color:'var(--amber)'},
-    {label:'Medium',count:med,color:'#8b5cf6'},
-    {label:'Low',count:low,color:'var(--accent)'},
-  ];
-  document.getElementById('sev-bars').innerHTML=bars.map(b=>{
-    const pct=Math.round((b.count/total)*100);
-    return`<div class="sev-row">
-      <span class="sev-label">${b.label}</span>
-      <div class="sev-bar-wrap"><div class="sev-bar" style="width:${pct}%;background:${b.color}"></div></div>
-      <span class="sev-count">${b.count.toLocaleString()}</span>
-    </div>`;
-  }).join('');
-}
+  topAttackers.forEach((p, i) => {
+    const src = projection([p.lon, p.lat]);
+    const dst = projection([HOME.lon, HOME.lat]);
+    if (!src || !dst) return;
 
-// ─── TOP RULES ────────────────────────────────────────────────────────────────
-function renderRules(points){
-  const ruleMap={};
-  points.forEach(p=>{
-    if(!p.rule)return;
-    // Shorten rule text
-    const r=p.rule.replace(/^(sshd:|Win-Wazuh-|win-wazuh-|windows-)/i,'').replace(/\s+/g,' ').trim();
-    ruleMap[r]=(ruleMap[r]||0)+p.count;
+    // Bezier control point (arc up)
+    const mx = (src[0] + dst[0]) / 2;
+    const my = (src[1] + dst[1]) / 2 - Math.abs(dst[0] - src[0]) * 0.25 - 30;
+
+    const pathStr = `M${src[0]},${src[1]} Q${mx},${my} ${dst[0]},${dst[1]}`;
+    const col = SEV.color(p.level);
+    const opacity = p.level >= 12 ? 0.7 : p.level >= 7 ? 0.5 : 0.28;
+
+    // Arc line
+    arcG.append('path')
+      .attr('d', pathStr)
+      .attr('fill','none')
+      .attr('stroke', col)
+      .attr('stroke-width', p.level >= 12 ? 1.2 : 0.7)
+      .attr('opacity', opacity)
+      .attr('stroke-dasharray','3,4');
+
+    // Traveling dot along arc
+    const travelDot = arcG.append('circle')
+      .attr('r', p.level >= 12 ? 2.5 : 1.8)
+      .attr('fill', col)
+      .attr('opacity', 0.9)
+      .style('filter',`drop-shadow(0 0 3px ${col})`);
+
+    const totalLen = (() => {
+      const tmp = document.createElementNS('http://www.w3.org/2000/svg','path');
+      tmp.setAttribute('d', pathStr);
+      return tmp.getTotalLength();
+    })();
+
+    const speed = p.level >= 12 ? 2000 : p.level >= 7 ? 2800 : 3800;
+    const delay = (i * 180) % speed;
+
+    (function animate(start) {
+      const tick = (now) => {
+        const elapsed = (now - start + delay) % speed;
+        const t = elapsed / speed;
+        const tmp = document.createElementNS('http://www.w3.org/2000/svg','path');
+        tmp.setAttribute('d', pathStr);
+        const pt = tmp.getPointAtLength(t * totalLen);
+        if (!travelDot.node().parentNode) return;
+        travelDot.attr('cx', pt.x).attr('cy', pt.y);
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    })(performance.now());
   });
-  const sorted=Object.entries(ruleMap).sort((a,b)=>b[1]-a[1]).slice(0,6);
-  if(!sorted.length){document.getElementById('rules-list').innerHTML='<div style="padding:10px 12px;font-size:11px;color:var(--text-subtle)">No data</div>';return;}
-  const max=sorted[0][1]||1;
-  document.getElementById('rules-list').innerHTML=sorted.map(([name,cnt])=>{
-    const pct=Math.round((cnt/max)*100);
-    return`<div class="rule-item">
-      <div class="rule-name" title="${name}">${name}</div>
-      <div class="rule-bar-row">
-        <div class="rule-bar-wrap"><div class="rule-bar" style="width:${pct}%"></div></div>
-        <span class="rule-count">${cnt.toLocaleString()}</span>
-      </div>
+
+  // ── Pulse rings (high severity) ──
+  ringG.selectAll('*').remove();
+  pts.filter(p => p.lat!=null && p.level >= 7).forEach(p => {
+    const xy = projection([p.lon, p.lat]);
+    if (!xy) return;
+    const col = SEV.color(p.level);
+    const dur = p.level >= 12 ? 1600 : 2200;
+    const maxR = p.level >= 12 ? 18 : 12;
+
+    for (let i = 0; i < 2; i++) {
+      ringG.append('circle')
+        .attr('cx', xy[0]).attr('cy', xy[1])
+        .attr('r', 0)
+        .attr('fill','none')
+        .attr('stroke', col)
+        .attr('stroke-width', 1.5)
+        .attr('opacity', 0)
+        .style('animation', `none`)
+        .call(el => {
+          let start = null;
+          const offset = i * (dur / 2);
+          const tick = (now) => {
+            if (!el.node().parentNode) return;
+            if (!start) start = now;
+            const t = ((now - start + offset) % dur) / dur;
+            el.attr('r', t * maxR)
+              .attr('opacity', Math.max(0, 0.8 * (1 - t)));
+            requestAnimationFrame(tick);
+          };
+          requestAnimationFrame(tick);
+        });
+    }
+  });
+
+  // ── Attack dots ──
+  const existingDots = {};
+  dotG.selectAll('.attack-dot').each(function(d) {
+    existingDots[d.ip] = this;
+  });
+
+  const tooltip = document.getElementById('tooltip');
+  const ttEl = {ip: document.getElementById('tt-ip'), country: document.getElementById('tt-country'), hits: document.getElementById('tt-hits'), level: document.getElementById('tt-level'), rule: document.getElementById('tt-rule')};
+
+  dotG.selectAll('.attack-dot').remove();
+
+  pts.filter(p => p.lat!=null && p.lon!=null).forEach(p => {
+    const xy = projection([p.lon, p.lat]);
+    if (!xy) return;
+
+    const col = SEV.color(p.level);
+    const r = Math.min(1.5 + Math.log10(p.count + 1) * 2.2, 7);
+
+    const dotEl = dotG.append('circle')
+      .attr('class', 'attack-dot' + (newIPs.has(p.ip) ? ' new-flash' : ''))
+      .attr('cx', xy[0]).attr('cy', xy[1]).attr('r', r)
+      .attr('fill', col)
+      .attr('opacity', p.level >= 12 ? 0.95 : p.level >= 7 ? 0.8 : 0.6)
+      .style('filter', `drop-shadow(0 0 ${r*1.4}px ${col})`)
+      .datum(p);
+
+    dotEl.on('mouseover', function(event, d) {
+      ttEl.ip.textContent = d.ip;
+      ttEl.country.textContent = (d.country||'Unknown') + (d.region ? ' · '+d.region : '');
+      ttEl.hits.textContent = (d.count||1).toLocaleString();
+      ttEl.level.textContent = `${d.level} — ${SEV.label(d.level)}`;
+      ttEl.rule.textContent = d.rule || '—';
+      tooltip.classList.add('visible');
+    }).on('mousemove', function(event) {
+      const wrap = document.getElementById('map-wrap');
+      const rect = wrap.getBoundingClientRect();
+      let x = event.clientX - rect.left + 14;
+      let y = event.clientY - rect.top - 10;
+      if (x + 190 > rect.width) x = event.clientX - rect.left - 190;
+      tooltip.style.left = x + 'px';
+      tooltip.style.top = y + 'px';
+    }).on('mouseout', function() {
+      tooltip.classList.remove('visible');
+    }).on('click', function(event, d) {
+      scrollFeedToIP(d.ip);
+    });
+  });
+}
+
+// ── SIDEBAR RENDERERS ──────────────────────────────────────────────────────
+function renderSeverity(points) {
+  const crit = points.filter(p=>p.level>=12).length;
+  const high = points.filter(p=>p.level>=7&&p.level<12).length;
+  const med  = points.filter(p=>p.level>=4&&p.level<7).length;
+  const low  = points.filter(p=>p.level<4).length;
+  const total = points.length || 1;
+
+  document.getElementById('ms-crit').textContent = crit.toLocaleString();
+  document.getElementById('ms-high').textContent = high.toLocaleString();
+  document.getElementById('ms-med').textContent  = med.toLocaleString();
+  document.getElementById('ms-low').textContent  = low.toLocaleString();
+  document.getElementById('st-crit').textContent = crit.toLocaleString();
+
+  const bars = [
+    {label:'Critical', count:crit, color:'var(--red)'},
+    {label:'High',     count:high, color:'var(--amber)'},
+    {label:'Medium',   count:med,  color:'var(--purple)'},
+    {label:'Low',      count:low,  color:'var(--accent)'},
+  ];
+  document.getElementById('sev-bars').innerHTML = bars.map(b => {
+    const pct = Math.round((b.count / total) * 100);
+    return `<div class="sev-row">
+      <span class="sev-lbl">${b.label}</span>
+      <div class="sev-bar-bg"><div class="sev-bar-fill" style="width:${pct}%;background:${b.color}"></div></div>
+      <span class="sev-cnt">${b.count.toLocaleString()}</span>
     </div>`;
   }).join('');
 }
 
-// ─── COUNTRIES ───────────────────────────────────────────────────────────────
-const FLAGS={'United States':'🇺🇸','China':'🇨🇳','Russia':'🇷🇺','Germany':'🇩🇪','Brazil':'🇧🇷','India':'🇮🇳','France':'🇫🇷','Netherlands':'🇳🇱','United Kingdom':'🇬🇧','Korea':'🇰🇷','South Korea':'🇰🇷','Japan':'🇯🇵','Canada':'🇨🇦','Italy':'🇮🇹','Vietnam':'🇻🇳','Iran':'🇮🇷','Ukraine':'🇺🇦','Singapore':'🇸🇬','Taiwan':'🇹🇼','Turkey':'🇹🇷','Hong Kong':'🇭🇰','Indonesia':'🇮🇩','Pakistan':'🇵🇰','Mexico':'🇲🇽','Romania':'🇷🇴','Bulgaria':'🇧🇬','Thailand':'🇹🇭','Argentina':'🇦🇷','Poland':'🇵🇱','Czech Republic':'🇨🇿'};
-function getFlag(name){for(const[k,v]of Object.entries(FLAGS)){if(name&&name.includes(k))return v;}return'🌐';}
+const FLAGS = {'United States':'🇺🇸','China':'🇨🇳','Russia':'🇷🇺','Germany':'🇩🇪','Brazil':'🇧🇷','India':'🇮🇳','France':'🇫🇷','Netherlands':'🇳🇱','United Kingdom':'🇬🇧','Korea':'🇰🇷','South Korea':'🇰🇷','Japan':'🇯🇵','Canada':'🇨🇦','Italy':'🇮🇹','Vietnam':'🇻🇳','Iran':'🇮🇷','Ukraine':'🇺🇦','Singapore':'🇸🇬','Taiwan':'🇹🇼','Turkey':'🇹🇷','Hong Kong':'🇭🇰','Indonesia':'🇮🇩','Pakistan':'🇵🇰','Mexico':'🇲🇽','Romania':'🇷🇴','Bulgaria':'🇧🇬','Thailand':'🇹🇭','Argentina':'🇦🇷','Poland':'🇵🇱','Czech Republic':'🇨🇿','Australia':'🇦🇺','Malaysia':'🇲🇾','Philippines':'🇵🇭'};
+function getFlag(name){ for(const[k,v] of Object.entries(FLAGS)){if(name&&name.includes(k))return v;} return'🌐'; }
 
-const CC={'United States':[39.5,-98.35],'China':[35,105],'Russia':[60,90],'Germany':[51,10],'Brazil':[-14,-51],'India':[20,78],'France':[46,2],'Netherlands':[52.4,4.9],'United Kingdom':[55,-3],'Japan':[36,138],'Korea':[36,128],'South Korea':[36,128],'Canada':[56,-106],'Vietnam':[16,108],'Iran':[32,53],'Ukraine':[49,32],'Singapore':[1.4,103.8]};
-
-function renderCountries(countries){
-  if(!countries.length){document.getElementById('country-list').innerHTML='<div style="padding:12px;font-size:11px;color:var(--text-subtle)">No data</div>';return;}
-  document.getElementById('st-countries').textContent=countries.length;
-  const max=countries[0].doc_count;
-  let html='';
-  countries.forEach(c=>{
-    const pct=Math.round((c.doc_count/max)*100);
-    const isUS=c.key==='United States';
-    html+=`<div class="c-item${isUS?' us':''}" onclick="zoomTo('${c.key}')">
+function renderCountries(countries) {
+  if (!countries.length) { document.getElementById('country-list').innerHTML='<div style="padding:10px 12px;font-size:11px;color:var(--text-subtle)">No data</div>'; return; }
+  document.getElementById('st-countries').textContent = countries.length;
+  const max = countries[0].doc_count;
+  document.getElementById('country-list').innerHTML = countries.slice(0,12).map(c => {
+    const pct = Math.round((c.doc_count / max) * 100);
+    return `<div class="c-item">
       <span class="c-flag">${getFlag(c.key)}</span>
       <span class="c-name">${c.key}</span>
-      <div class="c-bar-wrap"><div class="c-bar" style="width:${pct}%"></div></div>
+      <div class="c-bar-bg"><div class="c-bar-fill" style="width:${pct}%"></div></div>
       <span class="c-num">${c.doc_count.toLocaleString()}</span>
     </div>`;
+  }).join('');
+}
+
+function renderRules(points) {
+  const map = {};
+  points.forEach(p => {
+    if (!p.rule) return;
+    const r = p.rule.replace(/^(sshd:|Win-Wazuh-|win-wazuh-|windows-)/i,'').replace(/\s+/g,' ').trim().slice(0,50);
+    map[r] = (map[r]||0) + p.count;
   });
-  document.getElementById('country-list').innerHTML=html;
+  const sorted = Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  if (!sorted.length) { document.getElementById('rules-list').innerHTML='<div style="padding:8px 12px;font-size:11px;color:var(--text-subtle)">No data</div>'; return; }
+  const max = sorted[0][1] || 1;
+  document.getElementById('rules-list').innerHTML = sorted.map(([name, cnt]) => {
+    const pct = Math.round((cnt/max)*100);
+    return `<div class="rule-item">
+      <div class="rule-name" title="${name}">${name}</div>
+      <div class="rule-bar-row">
+        <div class="rule-bar-bg"><div class="rule-bar-fill" style="width:${pct}%"></div></div>
+        <span class="rule-cnt">${cnt.toLocaleString()}</span>
+      </div>
+    </div>`;
+  }).join('');
 }
 
-function zoomTo(name){
-  const coords=CC[name];
-  if(coords)globe.pointOfView({lat:coords[0],lng:coords[1],altitude:1.8},1200);
-  else globe.pointOfView({lat:20,lng:0,altitude:2.5},1200);
-}
-
-// ─── FEED ────────────────────────────────────────────────────────────────────
-function renderFeed(points,isRefresh){
-  const sorted=[...points].sort((a,b)=>(b.us-a.us)||(b.level-a.level)||(b.count-a.count)).slice(0,60);
-  let html='';
-  sorted.forEach(p=>{
-    const color=levelColor(p.level);
-    const isNew=isRefresh&&p.us&&!prevIPSet.has(p.ip);
-    const t=p.time?new Date(p.time).toLocaleTimeString('en-US',{hour12:false}):'';
-    const sevLabel=levelLabel(p.level);
-    html+=`<div class="f-item${p.us?' us':''}${isNew?' new':''}" onclick="flyToPoint(${p.lat},${p.lon},${p.level})">
+function renderFeed(points, isRefresh) {
+  const sorted = [...points].sort((a,b)=>(b.us-a.us)||(b.level-a.level)||(b.count-a.count)).slice(0,80);
+  document.getElementById('feed-list').innerHTML = sorted.map(p => {
+    const col = SEV.color(p.level);
+    const isNew = isRefresh && p.us && !prevIPs.has(p.ip);
+    const t = p.time ? new Date(p.time).toLocaleTimeString('en-US',{hour12:false}) : '';
+    return `<div class="f-item${p.us?' us-src':''}${isNew?' f-new':''}" onclick="panToPoint(${p.lat||0},${p.lon||0})">
       <div class="f-row1">
-        <span><span class="ldot" style="background:${color}"></span><span class="f-ip">${p.ip}</span>${p.us?'<span class="us-badge">US</span>':''}</span>
+        <span><span class="f-dot" style="background:${col};box-shadow:0 0 4px ${col}"></span><span class="f-ip">${p.ip}</span></span>
         <span class="f-time">${t}</span>
       </div>
-      <div class="f-row2">${p.country}${p.region?' · '+p.region:''} · ${p.count.toLocaleString()} hits · <span style="color:${color}">${sevLabel}</span></div>
+      <div class="f-row2">${getFlag(p.country)} ${p.country||'?'}${p.region?' · '+p.region:''} · ${(p.count||1).toLocaleString()} hits</div>
       <div class="f-rule">${p.rule||''}</div>
     </div>`;
+  }).join('') || '<div style="padding:12px;font-size:11px;color:var(--text-subtle)">No attacks in window</div>';
+}
+
+function scrollFeedToIP(ip) {
+  const items = document.querySelectorAll('.f-item');
+  items.forEach(el => {
+    if (el.querySelector('.f-ip')?.textContent === ip) {
+      el.scrollIntoView({behavior:'smooth', block:'nearest'});
+      el.style.background = 'rgba(29,111,255,.15)';
+      setTimeout(()=>el.style.background='', 1200);
+    }
   });
-  document.getElementById('feed-list').innerHTML=html||'<div style="padding:12px;font-size:11px;color:var(--text-subtle)">No attacks in window</div>';
 }
 
-function flyToPoint(lat,lon){globe.pointOfView({lat,lng:lon,altitude:1.2},1500);}
-function flyToUS(p){globe.pointOfView({lat:p.lat,lng:p.lon,altitude:1.0},1500);showToast(p);}
-
-// ─── US TOGGLE ────────────────────────────────────────────────────────────────
-function toggleUS(){
-  usOnly=!usOnly;
-  document.getElementById('btn-us').classList.toggle('active',usOnly);
-  applyGlobeData(allPoints);
-  if(usOnly){
-    globe.pointOfView({lat:39.5,lng:-98.35,altitude:1.6},1200);
-    const usPoints=allPoints.filter(p=>p.us);
-    if(usPoints.length)startCycle(usPoints);
-  }else{
-    stopCycle();
-    globe.pointOfView({lat:39.5,lng:-98.35,altitude:1.8},1200);
-  }
+// ── US TOGGLE ──────────────────────────────────────────────────────────────
+function toggleUS() {
+  usOnly = !usOnly;
+  document.getElementById('btn-us').classList.toggle('active', usOnly);
+  drawMap(allPoints, false);
 }
 
-// ─── CYCLE ───────────────────────────────────────────────────────────────────
-function startCycle(pts){
-  stopCycle();cycleList=pts;cycleIdx=0;
-  runCycleStep();cycleTimer=setInterval(runCycleStep,CYCLE_MS);animateCycleBar();
-}
-function stopCycle(){
-  if(cycleTimer){clearInterval(cycleTimer);cycleTimer=null;}
-  if(cycleProgressTimer){clearInterval(cycleProgressTimer);cycleProgressTimer=null;}
-  document.getElementById('cycle-fill').style.width='0%';
-}
-function runCycleStep(){
-  if(!cycleList.length)return;
-  const p=cycleList[cycleIdx%cycleList.length];cycleIdx++;
-  globe.pointOfView({lat:p.lat,lng:p.lon,altitude:1.0},1800);showToast(p);animateCycleBar();
-}
-function animateCycleBar(){
-  if(cycleProgressTimer)clearInterval(cycleProgressTimer);
-  const fill=document.getElementById('cycle-fill');
-  fill.style.transition='none';fill.style.width='0%';
-  let elapsed=0;const tick=80;
-  cycleProgressTimer=setInterval(()=>{
-    elapsed+=tick;fill.style.transition=`width ${tick}ms linear`;
-    fill.style.width=Math.min(100,(elapsed/CYCLE_MS)*100)+'%';
-    if(elapsed>=CYCLE_MS)clearInterval(cycleProgressTimer);
-  },tick);
+function panToPoint(lat, lon) {
+  // subtle highlight — scroll feed
 }
 
-// ─── TOAST ───────────────────────────────────────────────────────────────────
-let toastTimer=null;
-function showToast(p){
-  const old=document.getElementById('t-toast');if(old)old.remove();
-  if(toastTimer)clearTimeout(toastTimer);
-  const el=document.createElement('div');el.id='t-toast';el.className='toast';
-  el.innerHTML=`<div class="toast-hd">⚠ US Attack Detected <span class="toast-x" onclick="this.closest('.toast').remove()">✕</span></div>
-    <div class="toast-ip">${p.ip}</div>
-    <div class="toast-sub">${p.region?p.region+' · ':''}${p.country} · ${p.count.toLocaleString()} hits · Level ${p.level} (${levelLabel(p.level)})</div>
-    <div class="toast-sub" style="color:var(--text-muted);margin-top:3px">${p.rule||''}</div>`;
-  document.body.appendChild(el);
-  toastTimer=setTimeout(()=>{if(document.getElementById('t-toast')===el)el.remove();},6000);
+// ── LOAD DATA ──────────────────────────────────────────────────────────────
+function setStat(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = typeof val === 'number' ? val.toLocaleString() : val;
 }
 
-// ─── LOAD DATA ────────────────────────────────────────────────────────────────
-function setStat(id,val){
-  const el=document.getElementById(id);
-  if(el)el.textContent=typeof val==='number'?val.toLocaleString():val;
-}
-
-function loadData(){
-  const hours=document.getElementById('f-hours').value;
+function loadData() {
+  const hours = document.getElementById('f-hours').value;
   fetch(`/api/wazuh/geoalerts?hours=${hours}`)
-    .then(r=>r.json())
-    .then(data=>{
-      const points=data.points||[];
-      const isRefresh=!firstLoad;firstLoad=false;
-      setStat('st-total',data.total||0);
-      setStat('st-ips',points.length);
-      setStat('st-us',points.filter(p=>p.us).length);
-      allPoints=points;
-      applyGlobeData(points);
-      renderCountries(data.countries||[]);
-      renderFeed(points,isRefresh);
+    .then(r => r.json())
+    .then(data => {
+      const points = (data.points || []).filter(p => p.lat != null && p.lon != null);
+      const isRefresh = allPoints.length > 0;
+
+      setStat('st-total',    data.total || 0);
+      setStat('st-ips',      points.length);
+      setStat('st-us',       points.filter(p=>p.us).length);
+
+      allPoints = points;
+      drawMap(points, isRefresh);
       renderSeverity(points);
+      renderCountries(data.countries || []);
       renderRules(points);
-      prevIPSet=new Set(points.map(p=>p.ip));
-      const usPoints=points.filter(p=>p.us).sort((a,b)=>b.level-a.level||b.count-a.count);
-      if(usPoints.length&&!cycleTimer)startCycle(usPoints);
+      renderFeed(points, isRefresh);
+      prevIPs = new Set(points.map(p=>p.ip));
     })
-    .catch(e=>console.error('Threat map data error:',e));
+    .catch(e => console.error('Threat map load error:', e));
 }
 
-// ─── CLOCK ───────────────────────────────────────────────────────────────────
-function tickClock(){
-  const el=document.getElementById('foot-time');
-  if(el)el.textContent=new Date().toUTCString().split(' ').slice(4,5)[0]+' UTC';
+// ── RESIZE ────────────────────────────────────────────────────────────────
+function resizeMap() {
+  const wrap = document.getElementById('map-wrap');
+  mapW = wrap.clientWidth;
+  mapH = wrap.clientHeight;
+  d3.select('#map-svg').attr('width', mapW).attr('height', mapH);
+  projection.scale(Math.min(mapW / 5.8, mapH / 3.0)).translate([mapW/2, mapH/2]);
+  pathGen.projection(projection);
+  // Redraw everything
+  svgEl.selectAll('.sphere').attr('d', pathGen({type:'Sphere'}));
+  svgEl.selectAll('.graticule').attr('d', pathGen(d3.geoGraticule()()));
+  mapG.selectAll('.country').attr('d', pathGen);
+  if (allPoints.length) drawMap(allPoints, false);
 }
-tickClock();setInterval(tickClock,1000);
 
-loadData();
-setInterval(loadData,120000);
+window.addEventListener('resize', () => { clearTimeout(window._rTimer); window._rTimer = setTimeout(resizeMap, 150); });
+
+// ── CLOCK ──────────────────────────────────────────────────────────────────
+function tickClock() {
+  const el = document.getElementById('foot-time');
+  if (el) el.textContent = new Date().toUTCString().split(' ').slice(4,5)[0] + ' UTC';
+}
+tickClock();
+setInterval(tickClock, 1000);
+
+// ── START ──────────────────────────────────────────────────────────────────
+initMap();
+setInterval(loadData, 120000);
 </script>
 </body>
 </html>
