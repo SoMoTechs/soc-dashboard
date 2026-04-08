@@ -782,6 +782,55 @@ TRMM_API_TOKEN     = os.environ.get('TRMM_API_TOKEN', '')
 ANTHROPIC_API_KEY  = os.environ.get('ANTHROPIC_API_KEY', '')
 
 # Action1 RMM (cloud)
+ACTION1_CLIENT_ID     = os.environ.get('ACTION1_CLIENT_ID', '')
+ACTION1_CLIENT_SECRET = os.environ.get('ACTION1_CLIENT_SECRET', '')
+ACTION1_ORG_ID        = os.environ.get('ACTION1_ORG_ID', '')  # blank = all orgs
+_A1_BASE              = 'https://app.action1.com/api/3.0'
+_a1_token_cache       = {'token': None, 'expires': 0}
+
+def _a1_token():
+    """Return a valid Action1 OAuth2 bearer token (cached)."""
+    now = time.time()
+    if _a1_token_cache['token'] and now < _a1_token_cache['expires'] - 30:
+        return _a1_token_cache['token']
+    if not ACTION1_CLIENT_ID or not ACTION1_CLIENT_SECRET:
+        return None
+    try:
+        r = requests.post(
+            'https://app.action1.com/api/3.0/oauth2/token',
+            data={'grant_type': 'client_credentials',
+                  'client_id': ACTION1_CLIENT_ID,
+                  'client_secret': ACTION1_CLIENT_SECRET},
+            timeout=10,
+        )
+        if r.status_code == 200:
+            data = r.json()
+            _a1_token_cache['token']   = data.get('access_token')
+            _a1_token_cache['expires'] = now + data.get('expires_in', 3600)
+            return _a1_token_cache['token']
+    except Exception as e:
+        app.logger.error(f'Action1 token error: {e}')
+    return None
+
+def _a1_orgs():
+    """Return list of Action1 org dicts, filtered by ACTION1_ORG_ID if set."""
+    tok = _a1_token()
+    if not tok:
+        return []
+    try:
+        r = requests.get(f'{_A1_BASE}/organizations',
+                         headers={'Authorization': f'Bearer {tok}'}, timeout=10)
+        if r.status_code != 200:
+            return []
+        body = r.json()
+        # API returns {"items": [...], "type": "ResultPage", ...}
+        orgs = body.get('items', body) if isinstance(body, dict) else body
+        if ACTION1_ORG_ID:
+            orgs = [o for o in orgs if o.get('id') == ACTION1_ORG_ID]
+        return orgs
+    except Exception as e:
+        app.logger.error(f'Action1 orgs error: {e}')
+        return []
 
 # Subnet lockdown — only these CIDRs can access the dashboard UI
 _raw_subnet = os.environ.get('ALLOWED_SUBNET', '10.10.0.0/24')
@@ -807,9 +856,9 @@ _AI_CACHE_TTL  = 180  # 3 minutes
 # Simple in-memory rate limiter for agent endpoints
 import collections
 _rl_lock   = __import__('threading').Lock()
-_rl_counts = collections.defaultdict(list)  # ip -> [timestamps]
+_rl_counts = collections.defaultdict(list)  # key -> [timestamps]
 _RL_WINDOW = 60    # seconds
-_RL_LIMIT  = 120   # max requests per window per IP
+_RL_LIMIT  = 30    # max requests per window per agent (not per IP — all agents share bridge IP)
 
 def _real_client_ip():
     """Extract true client IP, respecting Cloudflare and NPM proxy headers."""
@@ -824,12 +873,16 @@ def _real_client_ip():
         return xff or request.headers.get('X-Real-Ip', str(remote)) or str(remote)
     return str(remote)
 
-def _agent_rate_limit():
-    """Return True if the calling IP has exceeded the rate limit."""
-    ip  = _real_client_ip()
+def _agent_rate_limit(agent_id: str = '') -> bool:
+    """Return True if this agent has exceeded the rate limit.
+
+    Key is the agent_id when provided (beacon/poll), otherwise falls back to IP.
+    This avoids false-positives when many agents share the Docker bridge IP.
+    """
+    key = agent_id if agent_id else _real_client_ip()
     now = time.time()
     with _rl_lock:
-        ts = _rl_counts[ip]
+        ts = _rl_counts[key]
         ts[:] = [t for t in ts if now - t < _RL_WINDOW]
         if len(ts) >= _RL_LIMIT:
             return True
@@ -1446,10 +1499,10 @@ def db_conn():
 @agent_auth
 def rmm_poll():
     """Lightweight command check — updates last_seen without touching telemetry."""
-    if _agent_rate_limit():
-        return jsonify({'error': 'rate limit'}), 429
     d = request.json or {}
     agent_id = d.get('id', '')
+    if _agent_rate_limit(agent_id):
+        return jsonify({'error': 'rate limit'}), 429
     if not agent_id:
         return jsonify({'error': 'no id'}), 400
     now = datetime.utcnow().isoformat()
@@ -1465,10 +1518,10 @@ def rmm_poll():
 @app.route('/api/rmm/beacon', methods=['POST'])
 @agent_auth
 def rmm_beacon():
-    if _agent_rate_limit():
-        return jsonify({'error': 'rate limit'}), 429
     d = request.json or {}
     agent_id = d.get('id', '')
+    if _agent_rate_limit(agent_id):
+        return jsonify({'error': 'rate limit'}), 429
     if not agent_id:
         return jsonify({'error': 'no id'}), 400
     now = datetime.utcnow().isoformat()
@@ -1509,9 +1562,9 @@ def rmm_beacon():
 @app.route('/api/rmm/result', methods=['POST'])
 @agent_auth
 def rmm_result():
-    if _agent_rate_limit():
-        return jsonify({'error': 'rate limit'}), 429
     d = request.json or {}
+    if _agent_rate_limit(d.get('id', '')):
+        return jsonify({'error': 'rate limit'}), 429
     cmd_id = d.get('cmd_id')
     output = d.get('output', '')
     if not cmd_id:
@@ -5962,7 +6015,83 @@ def api_ws_screen_stream(agent_id):
 # Patch rmm_command to also push instantly via WS when agent is connected
 _orig_rmm_command = None  # resolved after function definition
 
-# ── Background alert monitor ──────────────────────────────────────────────────
+# ── Action1 RMM cloud integration ────────────────────────────────────────────
+
+_a1_ep_cache = {'data': None, 'ts': 0}
+_A1_EP_TTL   = 120  # cache endpoint list 2 min
+
+@app.route('/api/action1/endpoints')
+@login_required
+def api_action1_endpoints():
+    """Return Action1 endpoint list with online/offline counts across all orgs."""
+    now = time.time()
+    if _a1_ep_cache['data'] and now - _a1_ep_cache['ts'] < _A1_EP_TTL:
+        return jsonify(_a1_ep_cache['data'])
+    if not ACTION1_CLIENT_ID:
+        return jsonify({'ok': False, 'error': 'Action1 not configured', 'online': 0, 'offline': 0, 'total': 0, 'endpoints': []})
+    try:
+        orgs = _a1_orgs()
+        tok  = _a1_token()
+        all_eps = []
+        for org in orgs:
+            oid   = org.get('id') or org.get('organization_id', '')
+            oname = org.get('name', oid)
+            try:
+                r = requests.get(f'{_A1_BASE}/endpoints/{oid}',
+                                 headers={'Authorization': f'Bearer {tok}'}, timeout=10)
+                if r.status_code == 200:
+                    body = r.json()
+                    eps  = body if isinstance(body, list) else body.get('items', body.get('endpoints', []))
+                    for ep in eps:
+                        ep['org']    = oname
+                        ep['org_id'] = oid
+                        all_eps.append(ep)
+            except Exception:
+                pass
+        online  = sum(1 for e in all_eps if (e.get('status') or '').lower() in ('connected', 'online'))
+        offline = len(all_eps) - online
+        result  = {'ok': True, 'online': online, 'offline': offline, 'total': len(all_eps), 'endpoints': all_eps}
+        _a1_ep_cache['data'] = result
+        _a1_ep_cache['ts']   = now
+        return jsonify(result)
+    except Exception as e:
+        app.logger.error(f'Action1 endpoints error: {e}')
+        return jsonify({'ok': False, 'error': 'Internal server error', 'online': 0, 'offline': 0, 'total': 0, 'endpoints': []})
+
+@app.route('/api/action1/remote/<hostname>')
+@login_required
+def api_action1_remote(hostname):
+    """Return the Action1 console URL for a given hostname."""
+    if not ACTION1_CLIENT_ID:
+        return jsonify({'ok': False, 'error': 'Action1 not configured'})
+    try:
+        orgs = _a1_orgs()
+        tok  = _a1_token()
+        hn   = hostname.lower()
+        for org in orgs:
+            oid = org.get('id') or org.get('organization_id', '')
+            try:
+                r = requests.get(f'{_A1_BASE}/endpoints/{oid}',
+                                 headers={'Authorization': f'Bearer {tok}'}, timeout=10)
+                if r.status_code != 200:
+                    continue
+                body = r.json()
+                eps  = body if isinstance(body, list) else body.get('items', body.get('endpoints', []))
+                for ep in eps:
+                    name = (ep.get('name') or ep.get('hostname') or ep.get('device_name') or '').lower()
+                    if name == hn or hn in name:
+                        ep_id = ep.get('id') or ep.get('endpoint_id', '')
+                        if ep_id:
+                            url = f'https://app.action1.com/console/endpoint/{oid}/{ep_id}'
+                        else:
+                            url = f'https://app.action1.com/console/endpoints?org={oid}'
+                        return jsonify({'ok': True, 'url': url, 'org': org.get('name', oid)})
+            except Exception:
+                pass
+        return jsonify({'ok': False, 'error': f'{hostname} not found in Action1'})
+    except Exception as e:
+        app.logger.error(f'Action1 remote error: {e}')
+        return jsonify({'ok': False, 'error': 'Internal server error'})
 
 # ── Background alert monitor ──────────────────────────────────────────────────
 
