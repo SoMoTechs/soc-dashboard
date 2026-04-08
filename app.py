@@ -1499,7 +1499,7 @@ def db_conn():
 @agent_auth
 def rmm_poll():
     """Lightweight command check — updates last_seen without touching telemetry."""
-    d = request.json or {}
+    d = request.get_json(force=True, silent=True) or {}
     agent_id = d.get('id', '')
     if _agent_rate_limit(agent_id):
         return jsonify({'error': 'rate limit'}), 429
@@ -1518,7 +1518,7 @@ def rmm_poll():
 @app.route('/api/rmm/beacon', methods=['POST'])
 @agent_auth
 def rmm_beacon():
-    d = request.json or {}
+    d = request.get_json(force=True, silent=True) or {}
     agent_id = d.get('id', '')
     if _agent_rate_limit(agent_id):
         return jsonify({'error': 'rate limit'}), 429
@@ -1562,7 +1562,7 @@ def rmm_beacon():
 @app.route('/api/rmm/result', methods=['POST'])
 @agent_auth
 def rmm_result():
-    d = request.json or {}
+    d = request.get_json(force=True, silent=True) or {}
     if _agent_rate_limit(d.get('id', '')):
         return jsonify({'error': 'rate limit'}), 429
     cmd_id = d.get('cmd_id')
