@@ -7,9 +7,39 @@
   <link rel="icon" href="/favicon.ico" type="image/svg+xml">
   <link rel="stylesheet" href="/static/themes.css">
   <style>
+:root{
+  --bg:#0d1117;
+  --surface:#161b22;
+  --surface-2:#21262d;
+  --surface-3:#2d333b;
+  --border:#30363d;
+  --border-2:rgba(88,166,255,0.2);
+  --accent:#58a6ff;
+  --accent-2:#79c0ff;
+  --accent-dim:rgba(88,166,255,0.12);
+  --green:#3fb950;
+  --green-2:#56d364;
+  --green-dim:rgba(63,185,80,0.12);
+  --amber:#d29922;
+  --amber-2:#e3b341;
+  --amber-dim:rgba(210,153,34,0.12);
+  --red:#f85149;
+  --red-2:#ff7b72;
+  --red-dim:rgba(248,81,73,0.12);
+  --blue:#58a6ff;
+  --blue-2:#79c0ff;
+  --blue-dim:rgba(88,166,255,0.12);
+  --teal:#39d353;
+  --purple:#bc8cff;
+  --text:#e6edf3;
+  --text-muted:#8b949e;
+  --text-subtle:#484f58;
+  --navbar-h:0px;
+  --sidebar-w:200px;
+}
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg,#07090f);color:var(--text,#e2e8f0);min-height:100vh;display:flex}
-    .sidebar{width:200px;background:#050810;border-right:1px solid #1e293b;position:fixed;top:0;left:0;bottom:0;z-index:50;display:flex;flex-direction:column}
+    .sidebar{width:200px;background:#010409;border-right:1px solid var(--border);position:fixed;top:0;left:0;bottom:0;z-index:50;display:flex;flex-direction:column}
     .sidebar-logo{padding:20px 18px 16px;border-bottom:1px solid #1e293b;font-weight:700;font-size:.95rem;color:#f1f5f9;display:flex;align-items:center;gap:8px}
     .sidebar-nav{flex:1;padding:12px 10px;overflow-y:auto}
     .nav-link{display:flex;align-items:center;gap:8px;padding:7px 8px;color:#64748b;text-decoration:none;border-radius:5px;font-size:.82rem;border-left:2px solid transparent;transition:all .12s}

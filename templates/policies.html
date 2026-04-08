@@ -8,19 +8,39 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#06070c;--surface:#0d0f17;--surface-2:#111420;--surface-3:#161a28;
-  --border:rgba(255,255,255,0.06);--border-2:rgba(255,255,255,0.12);
-  --accent:#1D6FFF;--accent-2:#60A5FA;--accent-dim:rgba(99,102,241,0.12);
-  --green:#22c55e;--green-2:#4ade80;--green-dim:rgba(34,197,94,0.1);
-  --amber:#f59e0b;--amber-dim:rgba(245,158,11,0.1);
-  --red:#ef4444;--red-dim:rgba(239,68,68,0.1);
-  --text:#e8eaf0;--text-muted:#8892a4;--text-subtle:#475569;
-  --sidebar-w:228px;--term-bg:#04050a;--term-out:#c9d1d9;
+  --bg:#0d1117;
+  --surface:#161b22;
+  --surface-2:#21262d;
+  --surface-3:#2d333b;
+  --border:#30363d;
+  --border-2:rgba(88,166,255,0.2);
+  --accent:#58a6ff;
+  --accent-2:#79c0ff;
+  --accent-dim:rgba(88,166,255,0.12);
+  --green:#3fb950;
+  --green-2:#56d364;
+  --green-dim:rgba(63,185,80,0.12);
+  --amber:#d29922;
+  --amber-2:#e3b341;
+  --amber-dim:rgba(210,153,34,0.12);
+  --red:#f85149;
+  --red-2:#ff7b72;
+  --red-dim:rgba(248,81,73,0.12);
+  --blue:#58a6ff;
+  --blue-2:#79c0ff;
+  --blue-dim:rgba(88,166,255,0.12);
+  --teal:#39d353;
+  --purple:#bc8cff;
+  --text:#e6edf3;
+  --text-muted:#8b949e;
+  --text-subtle:#484f58;
+  --navbar-h:0px;
+  --sidebar-w:200px;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 html,body{height:100%;}
 body{background:var(--bg);background-image:radial-gradient(ellipse 80% 60% at 10% 30%,rgba(99,102,241,.07) 0%,transparent 60%);color:var(--text);font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.5;display:flex;}
-.sidebar{width:var(--sidebar-w);background:linear-gradient(180deg,#0a0b14 0%,#080910 100%);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:50;}
+.sidebar{width:var(--sidebar-w);background:#010409;border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:50;}
 .sidebar-logo{padding:20px 16px 16px;border-bottom:1px solid var(--border);}
 .logo-mark{display:flex;align-items:center;gap:11px;}
 .logo-icon{width:34px;height:34px;background:linear-gradient(135deg,#1D6FFF 0%,#8b5cf6 100%);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:white;flex-shrink:0;}
