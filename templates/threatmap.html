@@ -87,9 +87,9 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 #map-svg{width:100%;height:100%;}
 
 /* D3 map elements */
-.country{fill:#0e1420;stroke:rgba(255,255,255,0.06);stroke-width:.5px;}
-.graticule{fill:none;stroke:rgba(255,255,255,0.03);stroke-width:.4px;}
-.sphere{fill:#07111e;}
+.country{fill:#162236;stroke:rgba(255,255,255,0.18);stroke-width:.6px;}
+.graticule{fill:none;stroke:rgba(255,255,255,0.07);stroke-width:.4px;}
+.sphere{fill:#0a1628;}
 
 /* Attack dots */
 .attack-dot{cursor:pointer;transition:r .3s;}
@@ -446,9 +446,20 @@ function drawMap(points, isRefresh) {
       .attr('d', pathStr)
       .attr('fill','none')
       .attr('stroke', col)
-      .attr('stroke-width', p.level >= 12 ? 1.2 : 0.7)
+      .attr('stroke-width', p.level >= 12 ? 1.8 : p.level >= 7 ? 1.2 : 0.8)
       .attr('opacity', opacity)
-      .attr('stroke-dasharray','3,4');
+      .attr('stroke-dasharray', p.level >= 12 ? 'none' : '4,5');
+
+    // Source label (country + count) for high severity
+    if (p.level >= 7) {
+      arcG.append('text')
+        .attr('x', src[0] + 5).attr('y', src[1] - 5)
+        .attr('fill', col).attr('font-size', '9px')
+        .attr('font-family', 'JetBrains Mono,monospace')
+        .attr('opacity', 0.8)
+        .attr('pointer-events', 'none')
+        .text(`${p.country ? p.country.slice(0,12) : p.ip} ×${p.count}`);
+    }
 
     // Traveling dot along arc
     const travelDot = arcG.append('circle')
@@ -531,14 +542,14 @@ function drawMap(points, isRefresh) {
     if (!xy) return;
 
     const col = SEV.color(p.level);
-    const r = Math.min(1.5 + Math.log10(p.count + 1) * 2.2, 7);
+    const r = Math.min(2.5 + Math.log10(p.count + 1) * 2.8, 10);
 
     const dotEl = dotG.append('circle')
       .attr('class', 'attack-dot' + (newIPs.has(p.ip) ? ' new-flash' : ''))
       .attr('cx', xy[0]).attr('cy', xy[1]).attr('r', r)
       .attr('fill', col)
-      .attr('opacity', p.level >= 12 ? 0.95 : p.level >= 7 ? 0.8 : 0.6)
-      .style('filter', `drop-shadow(0 0 ${r*1.4}px ${col})`)
+      .attr('opacity', p.level >= 12 ? 1 : p.level >= 7 ? 0.9 : 0.75)
+      .style('filter', `drop-shadow(0 0 ${r*2}px ${col})`)
       .datum(p);
 
     dotEl.on('mouseover', function(event, d) {
