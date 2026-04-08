@@ -7081,6 +7081,7 @@ def api_support_request():
 def api_support_requests_list():
     status = request.args.get('status', 'open')
     conn = db_conn()
+    conn.row_factory = sqlite3.Row
     rows = conn.execute(
         "SELECT id, client, hostname, description, status, created_at FROM support_requests WHERE status=? ORDER BY created_at DESC LIMIT 50",
         (status,)
