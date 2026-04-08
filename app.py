@@ -1162,10 +1162,21 @@ def get_crowdsec_total():
             headers=_cs_headers(), timeout=8)
         if r.status_code == 200:
             d = r.json()
-            return len(d.get('new', []))
+            return len(d.get('new') or [])
     except:
         pass
-    return None
+    # Fallback: count decisions directly
+    try:
+        r = requests.get(f"{CROWDSEC_URL}/v1/decisions?limit=1",
+            headers=_cs_headers(), timeout=5)
+        if r.status_code == 200:
+            body = r.json()
+            if body is None:
+                return 0
+            return len(body) if isinstance(body, list) else 0
+    except:
+        pass
+    return 0
 
 def get_crowdsec_alerts():
     try:
@@ -1356,11 +1367,12 @@ def api_crowdsec_live():
         decisions = r.json() if r.status_code == 200 else []
     except:
         decisions = []
-    total = get_crowdsec_total()
-    ips = list({d['value'] for d in (decisions or []) if d.get('value')})
+    total = get_crowdsec_total() or 0
+    decisions = decisions or []
+    ips = list({d['value'] for d in decisions if d.get('value')})
     geo = _geo_country_batch(ips)
     return jsonify({
-        'decisions': decisions or [],
+        'decisions': decisions,
         'total': total,
         'geo': geo,
     })
